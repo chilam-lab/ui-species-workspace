@@ -1,0 +1,19 @@
+<div class="selector-container">
+  <div class="field">
+    <label for="region">Región</label>
+    <select id="region" [(ngModel)]="selectedRegionId" (change)="onRegionChange()">
+      <option *ngFor="let region of regions()" [value]="region.id">
+        {{ region.name }}
+      </option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="resolution">Resolución</label>
+    <select id="resolution" [(ngModel)]="selectedResolution" (change)="onResolutionChange()">
+      <option *ngFor="let res of resolutions()" [value]="res">
+        {{ res }}
+      </option>
+    </select>
+  </div>
+</div>

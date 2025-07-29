@@ -1,0 +1,5 @@
+/* mapa-malla.component.css */
+#map {
+  height: 400px; /* o 100vh si quieres pantalla completa */
+  width: 100%;
+}

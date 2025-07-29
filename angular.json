@@ -1,0 +1,263 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "tabla-species": {
+      "projectType": "library",
+      "root": "projects/tabla-species",
+      "sourceRoot": "projects/tabla-species/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/tabla-species/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/tabla-species/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/tabla-species/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/tabla-species/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
+    },
+    "tabla-species-demo": {
+      "projectType": "application",
+      "schematics": {},
+      "root": "projects/tabla-species-demo",
+      "sourceRoot": "projects/tabla-species-demo/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:application",
+          "options": {
+            "outputPath": "dist/tabla-species-demo",
+            "index": "projects/tabla-species-demo/src/index.html",
+            "browser": "projects/tabla-species-demo/src/main.ts",
+            "polyfills": [
+              "zone.js"
+            ],
+            "tsConfig": "projects/tabla-species-demo/tsconfig.app.json",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "projects/tabla-species-demo/public"
+              }
+            ],
+            "styles": [
+              "projects/tabla-species-demo/src/styles.css",
+              "node_modules/leaflet/dist/leaflet.css",
+              "src/styles.css"
+            ],
+            "scripts": []
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "tabla-species-demo:build:production"
+            },
+            "development": {
+              "buildTarget": "tabla-species-demo:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "extract-i18n": {
+          "builder": "@angular-devkit/build-angular:extract-i18n"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ],
+            "tsConfig": "projects/tabla-species-demo/tsconfig.spec.json",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "projects/tabla-species-demo/public"
+              }
+            ],
+            "styles": [
+              "projects/tabla-species-demo/src/styles.css"
+            ],
+            "scripts": []
+          }
+        }
+      }
+    },
+    "mapa-malla": {
+      "projectType": "library",
+      "root": "projects/mapa-malla",
+      "sourceRoot": "projects/mapa-malla/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/mapa-malla/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/mapa-malla/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/mapa-malla/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/mapa-malla/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
+    },
+    "mapa-maplibre": {
+      "projectType": "library",
+      "root": "projects/mapa-maplibre",
+      "sourceRoot": "projects/mapa-maplibre/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/mapa-maplibre/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/mapa-maplibre/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/mapa-maplibre/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/mapa-maplibre/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
+    },
+    "region-selector": {
+      "projectType": "library",
+      "root": "projects/region-selector",
+      "sourceRoot": "projects/region-selector/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/region-selector/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/region-selector/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/region-selector/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/region-selector/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
+    },
+    "taxon-selector": {
+      "projectType": "library",
+      "root": "projects/taxon-selector",
+      "sourceRoot": "projects/taxon-selector/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/taxon-selector/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/taxon-selector/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/taxon-selector/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/taxon-selector/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

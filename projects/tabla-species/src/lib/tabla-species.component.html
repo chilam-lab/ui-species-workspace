@@ -1,0 +1,31 @@
+<div class="tabla-container">
+  
+  <input
+    type="text"
+    [(ngModel)]="searchTerm"
+    placeholder="Buscador"
+    class="input-busqueda"
+  />
+
+  <table *ngIf="filteredData.length">
+    <thead>
+      <tr>
+        <th *ngFor="let col of columns" (click)="setSort(col)">
+          {{ col }}
+          <span *ngIf="sortColumn === col">
+            {{ sortDirection === 'asc' ? '▲' : '▼' }}
+          </span>
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let row of filteredData">
+        <td *ngFor="let col of columns">{{ row[col] }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div *ngIf="!filteredData.length" class="mensaje-vacio">
+    No hay resultados para mostrar.
+  </div>
+</div>

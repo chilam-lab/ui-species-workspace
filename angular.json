@@ -258,6 +258,138 @@
           }
         }
       }
+    },
+    "taxon-navigator": {
+      "projectType": "library",
+      "root": "projects/taxon-navigator",
+      "sourceRoot": "projects/taxon-navigator/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/taxon-navigator/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/taxon-navigator/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/taxon-navigator/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/taxon-navigator/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
+    },
+    "taxon-shared": {
+      "projectType": "library",
+      "root": "projects/taxon-shared",
+      "sourceRoot": "projects/taxon-shared/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/taxon-shared/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/taxon-shared/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/taxon-shared/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/taxon-shared/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
+    },
+    "taxon-scope": {
+      "projectType": "library",
+      "root": "projects/taxon-scope",
+      "sourceRoot": "projects/taxon-scope/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/taxon-scope/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/taxon-scope/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/taxon-scope/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/taxon-scope/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
+    },
+    "histogram-chart": {
+      "projectType": "library",
+      "root": "projects/histogram-chart",
+      "sourceRoot": "projects/histogram-chart/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/histogram-chart/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/histogram-chart/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/histogram-chart/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/histogram-chart/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
     }
   }
 }

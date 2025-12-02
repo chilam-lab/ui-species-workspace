@@ -1,0 +1,75 @@
+<!-- Mensaje inicial -->
+<div *ngIf="!currentChildLevel">
+  Selecciona un inicio desde el selector taxonómico.
+</div>
+
+<!-- Layout 2 columnas: izquierda navegación, derecha seleccionados -->
+<div class="navigator-grid" *ngIf="currentChildLevel">
+
+  <!-- Columna izquierda: navegador -->
+  <div class="nav-col">
+
+    <!-- Barra superior fuera del scroll -->
+    <div class="navigator-controls">
+      <h3>Selecciona {{ currentChildLevel }}</h3>
+      <button mat-stroked-button color="primary"
+              (click)="goBack()" [disabled]="pathStack().length <= 1">
+        <mat-icon>arrow_back</mat-icon>
+        Regresar
+      </button>
+    </div>
+
+    <!-- Lista con scroll propio -->
+    <div class="list-scroll">
+      <div class="list-item" *ngFor="let n of currentNodes(); trackBy: trackByValue">
+        <mat-checkbox
+          [checked]="isSelectedValue(n.value)"
+          (change)="toggleSelection(n)">
+          {{ n.label }}
+        </mat-checkbox>
+
+        <!-- Flecha sólo si hay siguiente nivel -->
+        <button mat-icon-button
+                *ngIf="hasNextLevel"
+                (click)="goForward(n); $event.stopPropagation()"
+                aria-label="Ir al siguiente nivel">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+
+      <div class="empty" *ngIf="!currentNodes()?.length">
+        No hay elementos para este nivel.
+      </div>
+    </div>
+  </div>
+
+  <!-- Columna derecha: seleccionados -->
+  <div class="right-col">
+    <div class="sel-header">
+      <h4>Seleccionados</h4>
+      <span class="hint">Se actualizan al marcar/desmarcar</span>
+    </div>
+
+    <div class="sel-scroll">
+      <ng-container *ngIf="selectedSummary().length; else noSel">
+        <div class="sel-group" *ngFor="let grp of selectedSummary()">
+          <div class="sel-level">{{ grp.levelName | titlecase }}</div>
+
+          <ul class="sel-list">
+            <li class="sel-item" *ngFor="let it of grp.items">
+              <span class="sel-label">{{ it.label }}</span>
+              <button mat-icon-button (click)="removeSelected(grp.levelIdx, it.value)" aria-label="Quitar">
+                <mat-icon>close</mat-icon>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </ng-container>
+
+      <ng-template #noSel>
+        <div class="empty">Aún no has seleccionado elementos.</div>
+      </ng-template>
+    </div>
+  </div>
+
+</div>

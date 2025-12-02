@@ -1,0 +1,13 @@
+.selector-row {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.field { flex: 1 1 200px; }
+.field.grow { flex: 2 1 500px; }
+
+.option small {
+  opacity: .8;
+}

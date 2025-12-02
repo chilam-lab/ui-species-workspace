@@ -10,9 +10,10 @@
 
   <div class="field">
     <label for="resolution">Resolución</label>
-    <select id="resolution" [(ngModel)]="selectedResolution" (change)="onResolutionChange()">
-      <option *ngFor="let res of resolutions()" [value]="res">
-        {{ res }}
+    <!-- El value ahora es el grid_id; mostramos la etiqueta resolution -->
+    <select id="resolution" [(ngModel)]="selectedGridId" (change)="onResolutionChange()">
+      <option *ngFor="let res of resolutions()" [value]="res.grid_id">
+        {{ res.resolution }}
       </option>
     </select>
   </div>

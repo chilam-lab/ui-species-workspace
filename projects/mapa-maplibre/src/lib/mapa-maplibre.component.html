@@ -1,2 +1,21 @@
+<!-- mapa-maplibre.component.html -->
+<div class="map-wrapper" [attr.aria-busy]="loading ? 'true' : 'false'">
+  <div #mapEl class="map-el"></div>
 
-<div id="map" style="height: 500px; width: 100%;"></div>
+  <!-- Overlay de LOADING -->
+  <div class="overlay" *ngIf="loading">
+    <div class="spinner"></div>
+    <div class="msg">Procesando…</div>
+  </div>
+
+  <!-- Leyenda (se muestra si hay items) -->
+  <div class="legend" *ngIf="legendItems?.length">
+    <div class="legend-title">Score por celda</div>
+    <div class="legend-scale">
+      <div class="legend-item" *ngFor="let it of legendItems">
+        <span class="swatch" [style.background]="it.color"></span>
+        <span class="label">{{ it.label }}</span>
+      </div>
+    </div>
+  </div>
+</div>

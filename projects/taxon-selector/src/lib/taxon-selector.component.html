@@ -1,0 +1,43 @@
+<div class="selector-row">
+  <!-- Nivel taxonómico -->
+  <mat-form-field appearance="fill" class="field">
+    <mat-label>Nivel</mat-label>
+    <mat-select [ngModel]="selectedLevel?.variable_id" (ngModelChange)="onLevelChange($event)">
+      <mat-option *ngFor="let level of taxonomicLevels()" [value]="level.variable_id">
+        {{ level.variable }}
+      </mat-option>
+    </mat-select>
+  </mat-form-field>
+
+  <!-- Input de búsqueda con AUTOCOMPLETE (overlay) -->
+  <mat-form-field appearance="fill" class="field grow">
+    <mat-label>Búsqueda sobre Nivel</mat-label>
+    <input
+      matInput
+      [formControl]="searchControl"
+      placeholder="Escribe al menos 3 caracteres..."
+      [matAutocomplete]="auto">
+
+    <!-- Panel overlay -->
+    <mat-autocomplete
+      #auto="matAutocomplete"
+      (optionSelected)="onAutocompleteSelected($event)"
+      autoActiveFirstOption>
+      <mat-option *ngFor="let species of suggestions()" [value]="species">
+        <div class="option">
+          <strong>{{ species.datos.especie }}</strong><br>
+          <small>
+            {{ species.datos.reino || '-' }} /
+            {{ species.datos.phylum || '-' }} /
+            {{ species.datos.clase || '-' }} /
+            {{ species.datos.orden || '-' }} /
+            {{ species.datos.familia || '-' }}
+          </small>
+        </div>
+      </mat-option>
+
+      <!-- opcional: indicador dentro del overlay -->
+      <mat-option *ngIf="loading()" disabled>Cargando…</mat-option>
+    </mat-autocomplete>
+  </mat-form-field>
+</div>

@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 
-import { MapaMaplibreService } from './mapa-maplibre.service';
+import { TaxonScopeService } from './taxon-scope.service';
 
-describe('MapaMaplibreService', () => {
-  let service: MapaMaplibreService;
+describe('TaxonScopeService', () => {
+  let service: TaxonScopeService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(MapaMaplibreService);
+    service = TestBed.inject(TaxonScopeService);
   });
 
   it('should be created', () => {

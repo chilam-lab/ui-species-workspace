@@ -17,6 +17,9 @@
     "importHelpers": true,
     "target": "ES2022",
     "paths": {
+      "histogram-chart": [
+        "./dist/histogram-chart"
+      ],
       "mapa-malla": [
         "./dist/mapa-malla"
       ],
@@ -29,8 +32,17 @@
       "tabla-species": [
         "./dist/tabla-species"
       ],
+      "taxon-navigator": [
+        "./dist/taxon-navigator"
+      ],
+      "taxon-scope": [
+        "./dist/taxon-scope"
+      ],
       "taxon-selector": [
         "./dist/taxon-selector"
+      ],
+      "taxon-shared": [
+        "./dist/taxon-shared"
       ]
     },
     "module": "ES2022"

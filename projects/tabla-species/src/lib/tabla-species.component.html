@@ -1,13 +1,42 @@
-<div class="tabla-container">
-  
-  <input
-    type="text"
-    [(ngModel)]="searchTerm"
-    placeholder="Buscador"
-    class="input-busqueda"
-  />
+<!-- tabla-species.component.html -->
+<div class="tabla-container" [attr.aria-busy]="loading ? 'true' : 'false'">
 
-  <table *ngIf="filteredData.length">
+  <!-- Overlay de LOADING -->
+  <div class="overlay" *ngIf="loading">
+    <div class="spinner"></div>
+    <div class="msg">Cargando tabla…</div>
+  </div>
+
+  <!-- Controles superiores: búsqueda + tamaño de página -->
+  <div class="table-controls">
+    <!-- Buscador -->
+    <input
+      type="text"
+      [(ngModel)]="searchTerm"
+      (ngModelChange)="onSearchChange()"
+      placeholder="Buscador"
+      class="input-busqueda"
+      [disabled]="loading"
+    />
+
+    <!-- Selector de registros por página -->
+    <div class="page-size-control">
+      <label>
+        Registros por página:
+        <select
+          [(ngModel)]="pageSize"
+          (ngModelChange)="onPageSizeChange($event)"
+          [disabled]="loading">
+          <option *ngFor="let size of pageSizeOptions" [value]="size">
+            {{ size }}
+          </option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <table *ngIf="!loading && paginatedData.length">
     <thead>
       <tr>
         <th *ngFor="let col of columns" (click)="setSort(col)">
@@ -19,13 +48,46 @@
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let row of filteredData">
+      <tr *ngFor="let row of paginatedData">
         <td *ngFor="let col of columns">{{ row[col] }}</td>
       </tr>
     </tbody>
   </table>
 
-  <div *ngIf="!filteredData.length" class="mensaje-vacio">
+  <!-- Mensaje cuando no hay resultados -->
+  <div *ngIf="!loading && !filteredData.length" class="mensaje-vacio">
     No hay resultados para mostrar.
   </div>
+
+  <!-- Paginador inferior -->
+  <div
+    class="paginator"
+    *ngIf="!loading && filteredData.length"
+  >
+    <div class="summary">
+      Mostrando {{ pageStartIndex }}–{{ pageEndIndex }}
+      de {{ filteredData.length }} registros
+    </div>
+
+    <div class="buttons">
+      <button
+        type="button"
+        (click)="changePage(-1)"
+        [disabled]="currentPage === 1">
+        Anterior
+      </button>
+
+      <span class="page-info">
+        Página {{ currentPage }} de {{ totalPages }}
+      </span>
+
+      <button
+        type="button"
+        (click)="changePage(1)"
+        [disabled]="currentPage === totalPages">
+        Siguiente
+      </button>
+    </div>
+  </div>
+
 </div>

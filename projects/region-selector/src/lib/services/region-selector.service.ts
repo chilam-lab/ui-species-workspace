@@ -1,12 +1,17 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { map, switchMap } from 'rxjs/operators';
-import { forkJoin, Observable, of } from 'rxjs';
+import { forkJoin, Observable } from 'rxjs';
 
-interface Region {
+export interface ResolutionOption {
+  grid_id: number;
+  resolution: string;
+}
+
+export interface Region {
   id: number;
   name: string;
-  resolutions: string[];
+  resolutions: ResolutionOption[];
 }
 
 @Injectable()
@@ -15,41 +20,37 @@ export class RegionSelectorService {
 
   constructor(private http: HttpClient) {}
 
+  /** Regresa regiones con sus resoluciones (cada una con grid_id y label resolution) */
   getRegionOptions(): Observable<Region[]> {
-    
     return this.http.post<{ regions: { id: number; name: string }[] }>(
       `${this.baseUrl}/mdf/getCatArea`,
       {}
     ).pipe(
-
       switchMap(response => {
-        
-        const requests = response.regions.map(region => this.http.post<{ resolutions: string[] }>(
+        const requests = response.regions.map(region =>
+          this.http.post<{ resolutions: ResolutionOption[] }>(
             `${this.baseUrl}/mdf/getCatArea`,
             { region_id: region.id }
           ).pipe(
             map(res => ({
               id: region.id,
               name: region.name,
-              resolutions: res.resolutions
+              resolutions: res.resolutions ?? []
             }))
           )
         );
-
         return forkJoin(requests);
-
       })
-      
     );
-
   }
 
-  getResolutions(regionId: number): Observable<string[]> {
-    return this.http.post<{ resolutions: string[] }>(
+  /** Si necesitas solo las resoluciones para una región específica */
+  getResolutions(regionId: number): Observable<ResolutionOption[]> {
+    return this.http.post<{ resolutions: ResolutionOption[] }>(
       `${this.baseUrl}/mdf/getCatArea`,
       { region_id: regionId }
     ).pipe(
-      map(response => response.resolutions)
+      map(response => response.resolutions ?? [])
     );
   }
 }

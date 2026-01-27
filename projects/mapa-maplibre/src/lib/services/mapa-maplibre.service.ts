@@ -1,7 +1,8 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { EventEmitter, Output } from '@angular/core';
+import { API_BASE_URL } from 'taxon-shared';
 
 /* ============ Tipos para Eps/Scr ============ */
 export type RelationQuery = {
@@ -54,11 +55,11 @@ export type EpsScrUnified = {
 /* ============ Servicio ============ */
 @Injectable({ providedIn: 'root' })
 export class MapaMaplibreService {
-  private readonly baseUrl = 'http://localhost:8087';
+  private apiBaseUrl = inject(API_BASE_URL);
 
-  private readonly geojsonUrl   = `${this.baseUrl}/mdf/getGeoJsonbyGridid`;
-  private readonly cellValuesUrl= `${this.baseUrl}/mdf/getCellValuesByGridid`;
-  private readonly epsScrUrl    = `${this.baseUrl}/mdf/getEpsScrRelation`;
+  private readonly geojsonUrl   = `${this.apiBaseUrl}/mdf/getGeoJsonbyGridid`;
+  private readonly cellValuesUrl= `${this.apiBaseUrl}/mdf/getCellValuesByGridid`;
+  private readonly epsScrUrl    = `${this.apiBaseUrl}/mdf/getEpsScrRelation`;
 
   /** Opcional: si quieres emitir desde el service (no es obligatorio) */
   @Output() epsScrRelReady = new EventEmitter<EpsScrRelRow[]>();

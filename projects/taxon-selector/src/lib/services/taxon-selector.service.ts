@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, map } from 'rxjs';
+import { API_BASE_URL } from 'taxon-shared';
 
 export interface TaxonomicLevel {
   variable_id: number;
@@ -23,12 +24,12 @@ export interface Species {
 
 @Injectable()
 export class TaxonSelectorService {
-  private baseUrl = 'http://localhost:8087/mdf'; 
-
+  private apiBaseUrl = inject(API_BASE_URL);
+  
   constructor(private http: HttpClient) {}
 
   getTaxonomicLevels(): Observable<TaxonomicLevel[]> {
-    return this.http.get<{data: TaxonomicLevel[]}>(`${this.baseUrl}/getTaxonList`)
+    return this.http.get<{data: TaxonomicLevel[]}>(`${this.apiBaseUrl}/mdf/getTaxonList`)
       .pipe(map(response => response.data));
   }
 
@@ -41,7 +42,7 @@ export class TaxonSelectorService {
       source_id
     };
 
-    return this.http.post<{data: Species[]}>(`${this.baseUrl}/getTaxonFromString`, body)
+    return this.http.post<{data: Species[]}>(`${this.apiBaseUrl}/mdf/getTaxonFromString`, body)
       .pipe(map(response => response.data));
       
   }

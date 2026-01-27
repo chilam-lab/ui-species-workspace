@@ -2,6 +2,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { map, Observable } from 'rxjs';
+import { API_BASE_URL } from 'taxon-shared';
 
 export interface TaxonItem {
   id: number;       // generado localmente para UI (checkbox/selección)
@@ -13,7 +14,7 @@ export interface TaxonItem {
 @Injectable()
 export class TaxonNavigatorService {
   private http = inject(HttpClient);
-  private baseUrl = 'http://localhost:8087/mdf'; 
+  private apiBaseUrl = inject(API_BASE_URL);
 
   getChildrenByName(opts: {
     parentLevel: string;
@@ -22,7 +23,7 @@ export class TaxonNavigatorService {
     baseUrl?: string;               
   }): Observable<TaxonItem[]> {
     
-    const url = `${this.baseUrl}/getTaxonChildren`;
+    const url = `${this.apiBaseUrl}/mdf/getTaxonChildren`;
 
     const body = {
       parentLevel: opts.parentLevel,

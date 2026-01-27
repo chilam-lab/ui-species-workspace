@@ -22,17 +22,23 @@ export interface Species {
   };
 }
 
+export interface TaxonSource {
+  id_source: number;
+  nombre: string;
+}
+
 @Injectable()
 export class TaxonSelectorService {
   private apiBaseUrl = inject(API_BASE_URL);
   
   constructor(private http: HttpClient) {}
 
-  getTaxonomicLevels(): Observable<TaxonomicLevel[]> {
-    return this.http.get<{data: TaxonomicLevel[]}>(`${this.apiBaseUrl}/mdf/getTaxonList`)
-      .pipe(map(response => response.data));
-  }
-
+  getTaxonomicLevels(source_id: number = 1): Observable<TaxonomicLevel[]> {
+  return this.http.get<{data: TaxonomicLevel[]}>(
+    `${this.apiBaseUrl}/mdf/getTaxonList`,
+    { params: { source_id } as any }
+  ).pipe(map(r => r.data));
+}
   searchSpecies(variable_id: number, variable: string, taxon_string: string, source_id: number = 1): Observable<Species[]> {
 
     const body = {
@@ -46,5 +52,12 @@ export class TaxonSelectorService {
       .pipe(map(response => response.data));
       
   }
+
+  getSources(): Observable<TaxonSource[]> {
+    return this.http
+      .get<{ response: TaxonSource[] }>(`${this.apiBaseUrl}/mdf/sources`)
+      .pipe(map(r => r.response ?? []));
+  }
+
 
 }

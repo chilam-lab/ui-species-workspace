@@ -1,3 +1,9 @@
+<mat-tab-group
+  *ngIf="sources().length > 0"
+  (selectedIndexChange)="onSourceTabChange($event)">
+  <mat-tab *ngFor="let s of sources()" [label]="s.nombre"></mat-tab>
+</mat-tab-group>
+
 <div class="selector-row">
   <!-- Nivel taxonómico -->
   <mat-form-field appearance="fill" class="field">
@@ -9,7 +15,7 @@
     </mat-select>
   </mat-form-field>
 
-  <!-- Input de búsqueda con AUTOCOMPLETE (overlay) -->
+  <!-- Búsqueda -->
   <mat-form-field appearance="fill" class="field grow">
     <mat-label>Búsqueda sobre Nivel</mat-label>
     <input
@@ -18,14 +24,16 @@
       placeholder="Escribe al menos 3 caracteres..."
       [matAutocomplete]="auto">
 
-    <!-- Panel overlay -->
     <mat-autocomplete
       #auto="matAutocomplete"
       (optionSelected)="onAutocompleteSelected($event)"
       autoActiveFirstOption>
+
       <mat-option *ngFor="let species of suggestions()" [value]="species">
         <div class="option">
-          <strong>{{ species.datos.especie }}</strong><br>
+          
+          <strong>{{ (species.datos.genero || '') + ' ' + (species.datos.especie || '') }}</strong><br>
+
           <small>
             {{ species.datos.reino || '-' }} /
             {{ species.datos.phylum || '-' }} /
@@ -36,7 +44,6 @@
         </div>
       </mat-option>
 
-      <!-- opcional: indicador dentro del overlay -->
       <mat-option *ngIf="loading()" disabled>Cargando…</mat-option>
     </mat-autocomplete>
   </mat-form-field>

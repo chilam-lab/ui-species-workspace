@@ -2,8 +2,12 @@
   "name": "histogram-chart",
   "version": "0.0.1",
   "peerDependencies": {
+    "taxon-shared": "^0.0.1",
     "@angular/common": ">=19.2.0 <21",
     "@angular/core": ">=19.2.0 <21"
+  },
+  "devDependencies": {
+    "taxon-shared": "0.0.1"
   },
   "dependencies": {
     "tslib": "^2.3.0"

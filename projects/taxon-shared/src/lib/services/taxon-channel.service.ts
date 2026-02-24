@@ -1,12 +1,17 @@
 import { Injectable } from '@angular/core';
-import { Subject } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 import { HierarchyStart } from '../models/hierarchy.models';
 
 @Injectable({ providedIn: 'root' })
 export class TaxonChannelService {
-  readonly startFrom$ = new Subject<HierarchyStart>();
+
+  // ✅ Subject privado: nadie externo lo puede next/complete por accidente
+  private readonly startFromSubject = new Subject<HierarchyStart>();
+
+  // ✅ Observable público: los componentes solo se suscriben
+  readonly startFrom$: Observable<HierarchyStart> = this.startFromSubject.asObservable();
 
   announceStart(payload: HierarchyStart) {
-    this.startFrom$.next(payload);
+    this.startFromSubject.next(payload);
   }
 }

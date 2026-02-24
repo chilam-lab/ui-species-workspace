@@ -3,7 +3,11 @@
   "version": "0.0.1",
   "peerDependencies": {
     "@angular/common": ">=19.2.0 <21",
-    "@angular/core": ">=19.2.0 <21"
+    "@angular/core": ">=19.2.0 <21",
+    "taxon-shared": "^0.0.1"
+  },
+  "devDependencies": {
+    "taxon-shared": "0.0.1"
   },
   "dependencies": {
     "tslib": "^2.3.0"

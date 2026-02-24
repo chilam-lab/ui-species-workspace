@@ -8,7 +8,8 @@ import { RegionSelectorService, Region, ResolutionOption } from './services/regi
   imports: [CommonModule, FormsModule],
   templateUrl: './region-selector.component.html',
   styleUrls: ['./region-selector.component.scss'],
-  providers: [RegionSelectorService]
+  providers: [RegionSelectorService],
+  standalone: true
 })
 export class RegionSelectorComponent implements OnInit {
 

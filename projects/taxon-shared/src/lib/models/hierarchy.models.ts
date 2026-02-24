@@ -1,7 +1,11 @@
 export interface HierarchyStart {
-  level: string;   // 'reino'
-  value: string;   // 'Plantae'
-  label?: string;  // 'Plantae'
+  level: string;        // 'reino' | 'Layer' | ...
+  value: string;        // 'Plantae' | 'bio001' | ...
+  label?: string;       // texto UI
+
+  // ✅ NUEVO: para soportar múltiples fuentes (SNIB/WorldClim/GBIF)
+  source_id?: number;   // id_source (ej. 1, 2, 3...)
+  source_name?: string; // opcional: nombre de fuente (ej. 'WorldClim')
 }
 
 export interface HierarchyItem {

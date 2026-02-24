@@ -22,10 +22,24 @@
     <!-- Lista con scroll propio -->
     <div class="list-scroll">
       <div class="list-item" *ngFor="let n of currentNodes(); trackBy: trackByValue">
+
         <mat-checkbox
           [checked]="isSelectedValue(n.value)"
           (change)="toggleSelection(n)">
-          {{ n.label }}
+
+          <!-- Principal: label -->
+          <div class="item-text">
+
+            {{ n.label }} — {{ n.value }}
+
+            <!-- <div class="item-label">{{ n.label }}</div>
+
+            <div class="item-sub" *ngIf="n.value && n.value !== n.label">
+              {{ n.value }}
+            </div> -->
+
+          </div>
+
         </mat-checkbox>
 
         <!-- Flecha sólo si hay siguiente nivel -->
@@ -51,19 +65,32 @@
     </div>
 
     <div class="sel-scroll">
-      <ng-container *ngIf="selectedSummary().length; else noSel">
-        <div class="sel-group" *ngFor="let grp of selectedSummary()">
-          <div class="sel-level">{{ grp.levelName | titlecase }}</div>
+      <ng-container *ngIf="selectedSummaryAll().length; else noSel">
 
-          <ul class="sel-list">
-            <li class="sel-item" *ngFor="let it of grp.items">
-              <span class="sel-label">{{ it.label }}</span>
-              <button mat-icon-button (click)="removeSelected(grp.levelIdx, it.value)" aria-label="Quitar">
-                <mat-icon>close</mat-icon>
-              </button>
-            </li>
-          </ul>
+        <!-- Agrupa por fuente -->
+        <div class="source-group" *ngFor="let src of selectedSummaryAll()">
+          <div class="source-title">
+            {{ src.sourceName }}
+            <span class="source-id">(source_id: {{ src.sourceId }})</span>
+          </div>
+
+          <!-- Luego por nivel -->
+          <div class="sel-group" *ngFor="let grp of src.groups">
+            <div class="sel-level">{{ grp.levelName | titlecase }}</div>
+
+            <ul class="sel-list">
+              <li class="sel-item" *ngFor="let it of grp.items">
+                <span class="sel-label">{{ it.label }}</span>
+                <button mat-icon-button
+                        (click)="removeSelected(src.sourceId, grp.levelIdx, it.value)"
+                        aria-label="Quitar">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </li>
+            </ul>
+          </div>
         </div>
+
       </ng-container>
 
       <ng-template #noSel>

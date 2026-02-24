@@ -11,16 +11,33 @@ export interface TaxonomicLevel {
 export interface Species {
   id: number;
   level_id: number[];
-  datos: {
-    genero: string;
-    especie: string;
+
+  // SNIB/GBIF
+  datos?: {
+    genero?: string;
+    especie?: string;
     reino?: string;
     phylum?: string;
     clase?: string;
     orden?: string;
     familia?: string;
+    [k: string]: any;
   };
+
+  // WorldClim (y otras futuras fuentes)
+  data?: {
+    layer?: string;
+    descripcion?: string;
+    bins?: string | number;
+    area?: string;
+    idfuente?: number;
+    [k: string]: any;
+  };
+
+  // por si llega algo extra
+  [k: string]: any;
 }
+
 
 export interface TaxonSource {
   id_source: number;

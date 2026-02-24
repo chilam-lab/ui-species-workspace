@@ -1,0 +1,27 @@
+
+En ui-species-workspace:
+rm -rf dist
+
+ng build taxon-shared
+ng build histogram-chart
+ng build mapa-maplibre
+ng build region-selector
+ng build tabla-species
+ng build taxon-scope
+ng build taxon-navigator
+ng build taxon-selector
+
+cd dist/taxon-shared && npm pack --pack-destination ../../../species-front-angular/local-packages
+cd dist/histogram-chart && npm pack --pack-destination ../../../species-front-angular/local-packages
+cd dist/mapa-maplibre && npm pack --pack-destination ../../../species-front-angular/local-packages
+cd dist/region-selector && npm pack --pack-destination ../../../species-front-angular/local-packages
+cd dist/tabla-species && npm pack --pack-destination ../../../species-front-angular/local-packages
+cd dist/taxon-scope && npm pack --pack-destination ../../../species-front-angular/local-packages
+cd dist/taxon-navigator && npm pack --pack-destination ../../../species-front-angular/local-packages
+cd dist/taxon-selector && npm pack --pack-destination ../../../species-front-angular/local-packages
+
+
+
+En species-front-angular:
+
+rm -rf node_modules package-lock.json .angular/cache

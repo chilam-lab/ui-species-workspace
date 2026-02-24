@@ -106,3 +106,42 @@
   font-style: italic;
   padding: 8px;
 }
+
+
+.source-group {
+  &:not(:last-child) {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+}
+
+.source-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+
+  .source-id {
+    font-weight: 400;
+    opacity: 0.7;
+    font-size: 12px;
+    margin-left: 6px;
+  }
+}
+
+
+.item-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.item-label {
+  font-weight: 600;
+}
+
+.item-sub {
+  opacity: 0.7;
+  font-size: 12px;
+  margin-top: 2px;
+  word-break: break-word;
+}

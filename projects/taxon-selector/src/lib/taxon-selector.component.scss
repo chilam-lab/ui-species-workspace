@@ -8,6 +8,14 @@
 .field { flex: 1 1 200px; }
 .field.grow { flex: 2 1 500px; }
 
-.option small {
+.option .opt-sub {
   opacity: .8;
+}
+
+.option .opt-main {
+  line-height: 18px;
+}
+
+.option .opt-sub small {
+  line-height: 16px;
 }

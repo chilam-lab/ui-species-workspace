@@ -30,7 +30,11 @@
           <!-- Principal: label -->
           <div class="item-text">
 
-            {{ n.label }} — {{ n.value }}
+            <!-- {{ n.label }} — {{ n.value }} -->
+            <!-- {{ formatNodeValue(n.value) }} -->
+            {{ formatNodeValue(n.label || n.value) }}
+
+
 
             <!-- <div class="item-label">{{ n.label }}</div>
 
@@ -80,7 +84,11 @@
 
             <ul class="sel-list">
               <li class="sel-item" *ngFor="let it of grp.items">
-                <span class="sel-label">{{ it.label }}</span>
+                <!-- <span class="sel-label">{{ it.value }}</span> -->
+                <!-- <span class="sel-label">{{ formatSelectedValue(it.value, src.sourceName, grp.levelName) }}</span> -->
+                <span class="sel-label">{{ formatSelectedValue(it.label || it.value, src.sourceName, grp.levelName) }}</span>
+
+
                 <button mat-icon-button
                         (click)="removeSelected(src.sourceId, grp.levelIdx, it.value)"
                         aria-label="Quitar">

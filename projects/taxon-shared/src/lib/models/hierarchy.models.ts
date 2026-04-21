@@ -6,6 +6,11 @@ export interface HierarchyStart {
   // ✅ NUEVO: para soportar múltiples fuentes (SNIB/WorldClim/GBIF)
   source_id?: number;   // id_source (ej. 1, 2, 3...)
   source_name?: string; // opcional: nombre de fuente (ej. 'WorldClim')
+  context?: {
+    idfuente?: number | string | null;
+    layer?: string | null;
+    [k: string]: any;
+  };
 }
 
 export interface HierarchyItem {

@@ -1,7 +1,7 @@
-<div style="color:red;font-weight:bold">VERSION NUEVA TAXON-SELECTOR</div>
+<!-- <div style="color:red;font-weight:bold">VERSION NUEVA TAXON-SELECTOR</div> -->
 
 <mat-tab-group
-  *ngIf="sources().length > 0"
+  *ngIf="sources().length > 1"
   (selectedIndexChange)="onSourceTabChange($event)">
   <mat-tab *ngFor="let s of sources()" [label]="s.nombre"></mat-tab>
 </mat-tab-group>

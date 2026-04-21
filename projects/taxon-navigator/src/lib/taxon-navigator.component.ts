@@ -27,6 +27,8 @@ type SourceState = {
 
   // selección explícita
   selectedByLevel: SelectedDict;
+
+  startContext?: any;
 };
 
 /**
@@ -36,6 +38,13 @@ type SourceState = {
 type TaxonSelectionPayload = {
   levels: { level: string; values: string[] }[];
   source_id?: number;
+  
+  // todas las fuentes con sus grupos
+  sources: Array<{
+    source_id: number;
+    source_name: string;
+    levels: { level: string; values: string[] }[];
+  }>;
 };
 
 @Component({
@@ -170,32 +179,53 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
   // ✅ Emisión al padre (COMPATIBLE): SOLO LA FUENTE ACTIVA
   // ======================
   private emitSelection() {
-    const st = this.activeState();
+    const active = this.activeState();
+    const map = this.statesBySource();
 
-    if (!st) {
-      this.selectionChange.emit({ levels: [] });
+    const sources = Object.values(map).map(st => {
+      
+      const levels: { level: string; values: string[] }[] = [];
+      const sel = st.selectedByLevel;
+
+      Object.keys(sel).forEach(k => {
+        const levelIdx = +k;
+        const absIdx = st.startIndex + 1 + levelIdx;
+        const levelName = st.hierarchy[absIdx];
+        if (!levelName) return;
+
+        const dict = sel[levelIdx] || {};
+        const values = Object.keys(dict);
+        if (values.length) {
+          levels.push({ level: levelName, values });
+        }
+      });
+
+      return {
+        source_id: st.sourceId,
+        source_name: st.sourceName,
+        context: st.startContext,
+        levels
+      };
+    }).filter(src => src.levels.length > 0);
+
+    if (!active) {
+      this.selectionChange.emit({
+        levels: [],
+        source_id: undefined,
+        sources
+      });
       return;
     }
 
-    const levels: { level: string; values: string[] }[] = [];
-    const sel = st.selectedByLevel;
-
-    Object.keys(sel).forEach(k => {
-      const levelIdx = +k;
-      const absIdx = st.startIndex + 1 + levelIdx;
-      const levelName = st.hierarchy[absIdx];
-      if (!levelName) return;
-
-      const dict = sel[levelIdx] || {};
-      const values = Object.keys(dict);
-      if (values.length) levels.push({ level: levelName, values });
-    });
+    const activeEntry = sources.find(s => s.source_id === active.sourceId);
 
     this.selectionChange.emit({
-      levels,
-      source_id: st.sourceId
+      levels: activeEntry?.levels ?? [],
+      source_id: active.sourceId,
+      sources
     });
   }
+
 
   // ======================
   // Bootstrap dinámico por fuente
@@ -204,6 +234,8 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
     // Obtiene estado existente (para NO borrar selecciones previas de esa fuente)
     const map = { ...this.statesBySource() };
     const existing = map[sourceId];
+
+
 
     const base: SourceState = existing ?? {
       sourceId,
@@ -216,6 +248,9 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
       parentTrail: [],
       selectedByLevel: {}
     };
+
+    base.startContext = (start as any)?.context ?? base.startContext;
+
 
     // Actualiza jerarquía y metadata de fuente (por si cambió)
     base.sourceName = sourceName;
@@ -322,12 +357,16 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
         if (!st) return;
 
         const newStack = [...st.pathStack, nodes];
-        st.pathStack = newStack;
-        st.currentNodes = nodes;
-        st.currentLevel = newStack.length - 1;
 
-        map[sourceId] = st;
+        map[sourceId] = {
+          ...st,
+          pathStack: newStack,
+          currentNodes: nodes,
+          currentLevel: newStack.length - 1
+        };
+
         this.statesBySource.set(map);
+
       });
   }
 
@@ -464,8 +503,41 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
     this.emitSelection();
   }
 
-  /** trackBy estable */
-  trackByValue(_i: number, it: TaxonItem) {
-    return it.value;
+  private formatRangeIfWorldClim(value: string, sourceName?: string, levelName?: string): string {
+    const src = (sourceName ?? '').toLowerCase();
+    const lvl = (levelName ?? '').toLowerCase();
+
+    const isWorldClim = src.includes('worldclim');
+    const isRangeLevel = lvl === 'rango' || lvl === 'range';
+
+    if (!isWorldClim || !isRangeLevel || !value?.includes(':')) return value;
+
+    const [aRaw, bRaw] = value.split(':');
+    const a = Number(aRaw);
+    const b = Number(bRaw);
+
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return value;
+
+    return `${a.toFixed(2)}:${b.toFixed(2)}`;
   }
+
+  formatNodeValue(value: string): string {
+    const st = this.activeState();
+    return this.formatRangeIfWorldClim(value, st?.sourceName, this.currentChildLevel ?? undefined);
+  }
+
+  formatSelectedValue(value: string, sourceName: string, levelName: string): string {
+    return this.formatRangeIfWorldClim(value, sourceName, levelName);
+  }
+
+
+  /** trackBy estable */
+  // trackByValue(_i: number, it: TaxonItem) {
+  //   return it.value;
+  // }
+
+  trackByValue(_i: number, it: TaxonItem) {
+    return `${it.value}::${it.label}::${it.id}`;
+  }
+
 }

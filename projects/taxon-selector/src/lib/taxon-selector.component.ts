@@ -5,7 +5,8 @@ import {
   inject,
   ViewChild,
   Output,
-  EventEmitter
+  EventEmitter,
+  Input
 } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
@@ -56,10 +57,13 @@ export class TaxonSelectorComponent implements OnInit {
   private service = inject(TaxonSelectorService);
   private channel = inject(TaxonChannelService);
   
-
   @Output() speciesSelected = new EventEmitter<Species>();
 
   @ViewChild(MatAutocompleteTrigger) autoTrigger?: MatAutocompleteTrigger;
+
+  @Input() enabledSourceIds: number[] | null = null; // null = todas
+  @Input() forceSourceId: number | null = null;      // opcional: forzar una sola
+
 
   // ====== Tabs (Fuentes) ======
   sources = signal<TaxonSource[]>([]);
@@ -84,7 +88,17 @@ export class TaxonSelectorComponent implements OnInit {
     // 1) Cargar fuentes
     this.service.getSources().subscribe({
       next: (srcs) => {
-        const list = srcs ?? [];
+        // const list = srcs ?? [];
+        const raw = srcs ?? [];
+        const list = this.filterSourcesByInput(raw);
+
+        if (!list.length) {
+          console.warn('No hay fuentes habilitadas con la configuración actual.');
+          this.sources.set([]);
+          this.resetState();
+          return;
+        }
+
         this.sources.set(list);
 
         const initial = list.length > 0 ? list[0] : { id_source: 1, nombre: 'SNIB' };
@@ -134,6 +148,21 @@ export class TaxonSelectorComponent implements OnInit {
         this.suggestions.set([]);
       }
     });
+  }
+
+  private filterSourcesByInput(list: TaxonSource[]): TaxonSource[] {
+    if (!Array.isArray(list)) return [];
+
+    if (this.forceSourceId != null) {
+      return list.filter(s => s.id_source === this.forceSourceId);
+    }
+
+    if (this.enabledSourceIds && this.enabledSourceIds.length > 0) {
+      const allowed = new Set(this.enabledSourceIds);
+      return list.filter(s => allowed.has(s.id_source));
+    }
+
+    return list;
   }
 
   // ====== Tabs: handler ======
@@ -204,13 +233,25 @@ export class TaxonSelectorComponent implements OnInit {
       return (d.layer ?? d.descripcion ?? String(item.id ?? '')).toString();
     }
 
-    // SNIB/GBIF: item.datos.genero + item.datos.especie (fallbacks)
+    // SNIB/GBIF
     const datos: any = (item as any)?.datos ?? {};
+    const levelKey = (this.selectedLevel?.variable ?? '').toString().trim().toLowerCase();
+
+    // Si hay nivel seleccionado (ej. "familia"), prioriza ese campo.
+    if (levelKey && levelKey !== 'especie') {
+      const byLevel = (datos[levelKey] ?? '').toString().trim();
+      if (byLevel) return byLevel;
+    }
+
+    // Para especie, mantener formato "genero especie"
     const genero = (datos.genero ?? '').toString().trim();
     const especie = (datos.especie ?? '').toString().trim();
     const combo = `${genero} ${especie}`.trim();
 
     return combo || (datos.nombre ?? datos.scientificName ?? String(item.id ?? '')).toString();
+
+
+
   }
 
   getOptionSubtitle(item: Species): string {
@@ -245,30 +286,59 @@ export class TaxonSelectorComponent implements OnInit {
   }
 
   private extractValueForLevel(species: Species, levelKey: string): string | null {
-    // WorldClim: valor para navegar debería ser el layer (o lo que definas)
-    if (this.isWorldClim()) {
-      const d: any = (species as any)?.data ?? {};
-      // Si el "nivel" seleccionado es "Layer", el valor lógico es data.layer
-      if (levelKey.toLowerCase() === 'layer') {
-        const v = d.layer ?? null;
-        return v ? String(v).trim() : null;
-      }
-      // fallback genérico
-      const v = d[levelKey] ?? d.layer ?? null;
+  if (this.isWorldClim()) {
+    const d: any = (species as any)?.data ?? {};
+    const key = (levelKey ?? '').toString().trim().toLowerCase();
+
+    // Fuente -> usar el id de fuente real
+    if (key === 'fuente' || key === 'source' || key === 'idfuente') {
+      const v = d.idfuente ?? species?.id ?? null;
+      return v != null ? String(v).trim() : null;
+    }
+
+    // Layer -> usar el layer (bio001, bio002, etc.)
+    if (key === 'layer') {
+      const v = d.layer ?? null;
       return v ? String(v).trim() : null;
     }
 
-    // SNIB/GBIF
-    const datos: any = (species as any)?.datos ?? {};
-    const v: string | undefined = datos[levelKey];
-    return (v && String(v).trim()) ? String(v).trim() : null;
+    // Fallback genérico con lookup case-insensitive
+    const lowerMap: Record<string, any> = Object.keys(d).reduce((acc, k) => {
+      acc[k.toLowerCase()] = d[k];
+      return acc;
+    }, {} as Record<string, any>);
+
+    const v = lowerMap[key] ?? d.layer ?? null;
+    return v != null && String(v).trim() !== '' ? String(v).trim() : null;
   }
 
+  // SNIB/GBIF
+  const datos: any = (species as any)?.datos ?? {};
+  const v: string | undefined = datos[levelKey];
+  return (v && String(v).trim()) ? String(v).trim() : null;
+}
+
+
   private buildLabelForLevel(species: Species, levelKey: string, fallbackValue: string | null): string {
+    
     if (this.isWorldClim()) {
-      // label: layer o descripción
+      const d: any = (species as any)?.data ?? {};
+      const key = (levelKey ?? '').toString().trim().toLowerCase();
+
+      // Para Fuente, mostrar la descripción, no el id
+      if (key === 'fuente' || key === 'source' || key === 'idfuente') {
+        return this.worldClimSourceLabel(d) || this.getOptionLabel(species) || (fallbackValue ?? '');
+      }
+
+
+      // Para Layer, mostrar bio001 / bio002...
+      if (key === 'layer') {
+        return (d.layer ?? this.getOptionLabel(species) ?? fallbackValue ?? '').toString().trim();
+      }
+
       return this.getOptionLabel(species) || (fallbackValue ?? '');
     }
+
 
     const datos: any = (species as any)?.datos ?? {};
     if (levelKey === 'especie') {
@@ -279,6 +349,22 @@ export class TaxonSelectorComponent implements OnInit {
     }
     return fallbackValue ?? '';
   }
+
+  private buildStartContext(species: Species, levelKey: string): any {
+    if (!this.isWorldClim()) return undefined;
+    const d: any = (species as any)?.data ?? {};
+    const key = (levelKey ?? '').toLowerCase();
+
+    if (key === 'fuente' || key === 'source') {
+      return { idfuente: d.idfuente ?? null };
+    }
+    if (key === 'layer') {
+      return { idfuente: d.idfuente ?? null, layer: d.layer ?? null };
+    }
+    return undefined;
+  }
+
+  
 
   private handlePick(species: Species) {
 
@@ -298,7 +384,12 @@ export class TaxonSelectorComponent implements OnInit {
 
     const label = this.buildLabelForLevel(species, levelKey, value);
 
-    this.searchControl.setValue(label, { emitEvent: false });
+    // this.searchControl.setValue(label, { emitEvent: false });
+    const safeLabel = (label ?? '').toString().trim()
+      || this.getOptionLabel(species).toString().trim()
+      || String(value);
+
+    this.searchControl.setValue(safeLabel, { emitEvent: false });
 
     // level_id viene como arreglo (SNIB/GBIF) y WorldClim también lo trae en tu ejemplo
     this.selectedLevelIds = (species as any).level_id ?? [];
@@ -313,6 +404,8 @@ export class TaxonSelectorComponent implements OnInit {
       source_id: this.selectedSourceId()
     });
 
+    const context = this.buildStartContext(species, levelKey);
+
     // ✅ Emitir arranque hacia taxon-navigator
     // Recomendación: extender el payload con source_id para que taxon-navigator sepa qué backend/árbol usar
     this.channel.announceStart({
@@ -320,7 +413,8 @@ export class TaxonSelectorComponent implements OnInit {
       value,
       label,
       source_id: this.selectedSourceId(),
-      source_name: this.selectedSourceName?.() // si la tienes
+      source_name: this.selectedSourceName?.(),
+      context
     });
   }
 
@@ -332,4 +426,14 @@ export class TaxonSelectorComponent implements OnInit {
   trackById(_: number, item: any) {
     return item?.id;
   }
+
+  private worldClimSourceLabel(d: any): string {
+    const desc = (d?.descripcion ?? '').toString().trim();
+    const bins = (d?.bins ?? '').toString().trim();
+    const area = (d?.area ?? '').toString().trim();
+
+    const extras = [area, bins ? `bins:${bins}` : ''].filter(Boolean).join(' • ');
+    return [desc, extras].filter(Boolean).join(' • ');
+  }
+
 }

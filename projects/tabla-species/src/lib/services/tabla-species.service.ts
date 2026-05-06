@@ -1,14 +1,17 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { API_BASE_URL } from 'taxon-shared';
 
 @Injectable({ providedIn: 'root' })
 export class TablaSpeciesService {
+  private apiBaseUrl = inject(API_BASE_URL);
+
   /** Endpoint original para calcular todo el análisis */
-  private apiUrl = 'http://localhost:8087/mdf/getEpsScrRelation';
+  private apiUrl = `${this.apiBaseUrl}/mdf/getEpsScrRelation`;
 
   /** Endpoint nuevo para consultar por decil usando uuid */
-  private decileUrl = 'http://localhost:8087/mdf/getEpsScrRelationDecile';
+  private decileUrl = `${this.apiBaseUrl}/mdf/getEpsScrRelationDecile`;
 
   constructor(private http: HttpClient) {}
   

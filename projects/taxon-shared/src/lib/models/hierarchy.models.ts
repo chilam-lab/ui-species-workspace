@@ -1,3 +1,14 @@
+/**
+ * Fuentes que usan estructura de taxonomía (datos.genero, datos.especie, ...).
+ * Cualquier fuente NO listada aquí se trata como "layer" (data.layer, data.descripcion, ...).
+ */
+const TAXONOMY_SOURCE_NAMES = ['snib', 'gbif'];
+
+export function isLayerSource(sourceName: string): boolean {
+  const lower = (sourceName ?? '').toLowerCase();
+  return !TAXONOMY_SOURCE_NAMES.some(n => lower.includes(n));
+}
+
 export interface HierarchyStart {
   level: string;        // 'reino' | 'Layer' | ...
   value: string;        // 'Plantae' | 'bio001' | ...

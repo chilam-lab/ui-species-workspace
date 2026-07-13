@@ -135,6 +135,22 @@
   line-height: 1.2;
 }
 
+/* Ítem especial: el nodo padre al tope de la lista */
+.parent-start-item {
+  background: rgba(0, 0, 0, 0.035);
+
+  .parent-start-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+}
+
+.parent-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.12);
+  margin: 0 8px 4px;
+}
+
 .item-label {
   font-weight: 600;
 }

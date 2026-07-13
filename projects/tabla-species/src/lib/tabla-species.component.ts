@@ -145,6 +145,9 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
             ?? '',
           especie_covar: item?.metadata_covars?.especie
             ?? item?.metadata_covars?.species
+            ?? item?.metadata_covars?.label
+            ?? item?.metadata_covars?.layer
+            ?? item?.metadata_covars?.descripcion
             ?? '',
 
           // Métricas redondeadas
@@ -185,6 +188,9 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
           id_covars: item.id_covars,
           especie_covar: item?.metadata_covars?.especie
             ?? item?.metadata_covars?.species
+            ?? item?.metadata_covars?.label
+            ?? item?.metadata_covars?.layer
+            ?? item?.metadata_covars?.descripcion
             ?? '',
           n: item.n,
           ni: item.ni,

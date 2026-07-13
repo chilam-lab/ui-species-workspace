@@ -13,7 +13,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
 
-import { debounceTime, distinctUntilChanged, filter, switchMap, tap } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, filter, switchMap, tap, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 
 import {
   TaxonSelectorService,
@@ -33,7 +34,7 @@ import {
 
 import { MatTabsModule } from '@angular/material/tabs';
 
-import { TaxonChannelService } from 'taxon-shared';
+import { TaxonChannelService, isLayerSource } from 'taxon-shared';
 
 
 @Component({
@@ -134,6 +135,11 @@ export class TaxonSelectorComponent implements OnInit {
           this.selectedLevel?.variable ?? '',
           value,
           this.selectedSourceId()
+        ).pipe(
+          catchError(err => {
+            console.error('Error buscando especies:', err);
+            return of([]);
+          })
         )
       ),
       tap(() => this.loading.set(false))
@@ -217,18 +223,12 @@ export class TaxonSelectorComponent implements OnInit {
   }
 
   // ===========================
-  // Render helpers (SNIB/GBIF vs WorldClim)
+  // Render helpers (SNIB/GBIF vs fuentes layer)
   // ===========================
-  private isWorldClim(): boolean {
-    const name = (this.selectedSourceName() ?? '').toLowerCase();
-    return name.includes('worldclim');
-  }
-
   getOptionLabel(item: Species): string {
     if (!item) return '';
 
-    // WorldClim: item.data.layer / item.data.descripcion
-    if (this.isWorldClim()) {
+    if (isLayerSource(this.selectedSourceName())) {
       const d: any = (item as any)?.data ?? {};
       return (d.layer ?? d.descripcion ?? String(item.id ?? '')).toString();
     }
@@ -257,7 +257,7 @@ export class TaxonSelectorComponent implements OnInit {
   getOptionSubtitle(item: Species): string {
     if (!item) return '';
 
-    if (this.isWorldClim()) {
+    if (isLayerSource(this.selectedSourceName())) {
       const d: any = (item as any)?.data ?? {};
       const desc = (d.descripcion ?? '').toString().trim();
       const area = d.area ? ` • ${d.area}` : '';
@@ -286,7 +286,7 @@ export class TaxonSelectorComponent implements OnInit {
   }
 
   private extractValueForLevel(species: Species, levelKey: string): string | null {
-  if (this.isWorldClim()) {
+  if (isLayerSource(this.selectedSourceName())) {
     const d: any = (species as any)?.data ?? {};
     const key = (levelKey ?? '').toString().trim().toLowerCase();
 
@@ -302,13 +302,14 @@ export class TaxonSelectorComponent implements OnInit {
       return v ? String(v).trim() : null;
     }
 
-    // Fallback genérico con lookup case-insensitive
+    // Fallback genérico con lookup case-insensitive en data
+    // (soporta niveles con nombres arbitrarios: elevation_q10, categoria, etc.)
     const lowerMap: Record<string, any> = Object.keys(d).reduce((acc, k) => {
       acc[k.toLowerCase()] = d[k];
       return acc;
     }, {} as Record<string, any>);
 
-    const v = lowerMap[key] ?? d.layer ?? null;
+    const v = lowerMap[key] ?? d.idfuente ?? null;
     return v != null && String(v).trim() !== '' ? String(v).trim() : null;
   }
 
@@ -321,7 +322,7 @@ export class TaxonSelectorComponent implements OnInit {
 
   private buildLabelForLevel(species: Species, levelKey: string, fallbackValue: string | null): string {
     
-    if (this.isWorldClim()) {
+    if (isLayerSource(this.selectedSourceName())) {
       const d: any = (species as any)?.data ?? {};
       const key = (levelKey ?? '').toString().trim().toLowerCase();
 
@@ -351,17 +352,19 @@ export class TaxonSelectorComponent implements OnInit {
   }
 
   private buildStartContext(species: Species, levelKey: string): any {
-    if (!this.isWorldClim()) return undefined;
+    if (!isLayerSource(this.selectedSourceName())) return undefined;
     const d: any = (species as any)?.data ?? {};
     const key = (levelKey ?? '').toLowerCase();
 
-    if (key === 'fuente' || key === 'source') {
-      return { idfuente: d.idfuente ?? null };
-    }
-    if (key === 'layer') {
-      return { idfuente: d.idfuente ?? null, layer: d.layer ?? null };
-    }
-    return undefined;
+    // Para cualquier fuente layer: siempre incluir idfuente si está disponible.
+    // Incluir layer solo cuando el nivel seleccionado es explícitamente 'layer'.
+    // Esto hace el contexto independiente del nombre del nivel (soporta DEM, elevación, etc.)
+    const context: Record<string, any> = {};
+
+    if (d.idfuente != null) context['idfuente'] = d.idfuente;
+    if (key === 'layer' && d.layer != null) context['layer'] = d.layer;
+
+    return Object.keys(context).length ? context : undefined;
   }
 
   

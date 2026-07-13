@@ -290,7 +290,7 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
             title: { display: !!this.yLabel, text: this.yLabel },
             beginAtZero: true,
             ticks: {
-              callback: (val) => `${val}`
+              callback: (val) => this.f(val as number)
             },
             max: yMax    // 👈 aquí la magia: para deciles, max ≈ valor máximo de tus datos
           }

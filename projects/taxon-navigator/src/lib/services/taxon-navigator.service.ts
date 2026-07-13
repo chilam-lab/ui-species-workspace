@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { map, Observable } from 'rxjs';
-import { API_BASE_URL } from 'taxon-shared';
+import { API_BASE_URL, isLayerSource } from 'taxon-shared';
 
 export interface TaxonItem {
   id: number;
@@ -32,6 +32,7 @@ export class TaxonNavigatorService {
     parentValue: string;
     childLevel: string;
     source_id: number;
+    source_name?: string;
   }): Observable<TaxonItem[]> {
 
     const url = `${this.apiBaseUrl}/mdf/getTaxonChildren`;
@@ -51,12 +52,12 @@ export class TaxonNavigatorService {
           
           const meta = r?.meta ?? null;
           const childLevelName = (opts.childLevel ?? '').toString().trim().toLowerCase();
-          const isWorldClimRange = opts.source_id === 2 && (childLevelName === 'rango' || childLevelName === 'range');
+          const isLayerRange = isLayerSource(opts.source_name ?? '') && (childLevelName === 'rango' || childLevelName === 'range');
 
           let value: string;
           let label: string;
 
-          if (isWorldClimRange) {
+          if (isLayerRange) {
             // El backend ahora manda algo como:
             // r.value = "bid:300000 | tag:-27.2185:-21.8593"
             // r.label = "tag"

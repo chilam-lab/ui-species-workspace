@@ -8,7 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { takeUntil, Subject, of, switchMap } from 'rxjs';
-import { HierarchyStart, TaxonChannelService } from 'taxon-shared';
+import { HierarchyStart, TaxonChannelService, isLayerSource } from 'taxon-shared';
 
 type SelectedDict = { [levelIdx: number]: { [value: string]: string } };
 type ParentTrail = Array<{ level: string; value: string; label: string }>;
@@ -261,6 +261,13 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
     base.currentNodes = [];
     base.currentLevel = 0;
 
+    // Limpia la selección del nodo inicio anterior (key -1) ya que cambió el punto de partida
+    if ((base.selectedByLevel as any)[-1]) {
+      const sel = { ...base.selectedByLevel };
+      delete (sel as any)[-1];
+      base.selectedByLevel = sel;
+    }
+
     // Padre del primer nivel de hijos = start
     base.parentTrail = [{ level: start.level, value: start.value, label: start.label ?? start.value }];
 
@@ -341,7 +348,8 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
   // Carga de hijos (por fuente)
   // ======================
   private loadChildrenByName(sourceId: number, parentLevel: string, parentValue: string, childLevel: string) {
-    this.service.getChildrenByName({ parentLevel, parentValue, childLevel, source_id: sourceId })
+    const sourceName = this.statesBySource()[sourceId]?.sourceName ?? '';
+    this.service.getChildrenByName({ parentLevel, parentValue, childLevel, source_id: sourceId, source_name: sourceName })
       .subscribe((nodes: TaxonItem[]) => {
 
         console.log('[navigator] nodes mapped:', nodes.slice(0, 3));
@@ -378,6 +386,14 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
     if (!st) return;
 
     const level = st.currentLevel;
+
+    // Si el padre estaba seleccionado (key -1), lo quitamos al seleccionar un hijo en depth 0
+    if (level === 0 && (st.selectedByLevel as any)[-1]) {
+      const sel: any = { ...st.selectedByLevel };
+      delete sel[-1];
+      st.selectedByLevel = sel;
+    }
+
     const anc = this.getSelectedAncestorInfo(st, level);
 
     if (anc) {
@@ -503,14 +519,59 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
     this.emitSelection();
   }
 
+  // ======================
+  // Ítem "padre" al tope de la lista (solo depth 0)
+  // Almacenado en selectedByLevel con clave -1
+  // ======================
+
+  /** Nodo padre del nivel actual; sólo se expone cuando estamos en el primer nivel de navegación. */
+  get activeParentInfo(): { level: string; value: string; label: string } | null {
+    const st = this.activeState();
+    if (!st || st.currentLevel !== 0) return null;
+    return st.parentTrail[0] ?? null;
+  }
+
+  isParentSelected(): boolean {
+    const st = this.activeState();
+    if (!st) return false;
+    const parent = st.parentTrail[0];
+    if (!parent) return false;
+    return !!(st.selectedByLevel as any)[-1]?.[parent.value];
+  }
+
+  toggleParentSelection() {
+    const st = this.activeState();
+    if (!st || st.currentLevel !== 0) return;
+
+    const parent = st.parentTrail[0];
+    if (!parent) return;
+
+    const sel: any = { ...st.selectedByLevel };
+    const parentDict = sel[-1] ? { ...sel[-1] } : {};
+
+    if (parentDict[parent.value]) {
+      delete parentDict[parent.value];
+      if (Object.keys(parentDict).length) sel[-1] = parentDict;
+      else delete sel[-1];
+    } else {
+      // Selecciona el padre y limpia la selección de hijos en depth 0
+      sel[-1] = { [parent.value]: parent.label };
+      delete sel[0];
+    }
+
+    st.selectedByLevel = sel;
+    const map = { ...this.statesBySource() };
+    map[st.sourceId] = st;
+    this.statesBySource.set(map);
+    this.emitSelection();
+  }
+
   private formatRangeIfWorldClim(value: string, sourceName?: string, levelName?: string): string {
-    const src = (sourceName ?? '').toLowerCase();
     const lvl = (levelName ?? '').toLowerCase();
 
-    const isWorldClim = src.includes('worldclim');
     const isRangeLevel = lvl === 'rango' || lvl === 'range';
 
-    if (!isWorldClim || !isRangeLevel || !value?.includes(':')) return value;
+    if (!isLayerSource(sourceName ?? '') || !isRangeLevel || !value?.includes(':')) return value;
 
     const [aRaw, bRaw] = value.split(':');
     const a = Number(aRaw);

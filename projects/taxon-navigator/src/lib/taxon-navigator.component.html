@@ -21,6 +21,22 @@
 
     <!-- Lista con scroll propio -->
     <div class="list-scroll">
+
+      <!-- Ítem del padre: opción al tope para seleccionar el nodo buscado completo -->
+      <ng-container *ngIf="activeParentInfo as parent">
+        <div class="list-item parent-start-item">
+          <mat-checkbox
+            [checked]="isParentSelected()"
+            (change)="toggleParentSelection()">
+            <div class="item-text">
+              <span class="parent-start-label">{{ parent.label }}</span>
+              <span class="item-sub">{{ parent.level }}</span>
+            </div>
+          </mat-checkbox>
+        </div>
+        <div class="parent-divider"></div>
+      </ng-container>
+
       <div class="list-item" *ngFor="let n of currentNodes(); trackBy: trackByValue">
 
         <mat-checkbox

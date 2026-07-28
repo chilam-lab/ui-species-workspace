@@ -442,6 +442,17 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
     if (sel[level][node.value]) delete sel[level][node.value];
     else sel[level][node.value] = node.label;
 
+    // Roll-up: si todos los hijos del padre actual están seleccionados → consolidar en el padre (key -1)
+    if (level === 0) {
+      const currentParent = st.parentTrail[0];
+      if (currentParent && st.currentNodes.length > 0 && st.currentNodes.every(n => !!sel[0]?.[n.value])) {
+        (sel as any)[-1] = { ...((sel as any)[-1] || {}), [currentParent.value]: currentParent.label };
+        const clean0 = { ...sel[0] };
+        st.currentNodes.forEach(n => delete clean0[n.value]);
+        if (Object.keys(clean0).length) sel[0] = clean0; else delete sel[0];
+      }
+    }
+
     st.selectedByLevel = sel;
 
     this.syncParentFromChildren(st, level, st.currentNodes);

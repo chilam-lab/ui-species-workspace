@@ -261,13 +261,6 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
     base.currentNodes = [];
     base.currentLevel = 0;
 
-    // Limpia la selección del nodo inicio anterior (key -1) ya que cambió el punto de partida
-    if ((base.selectedByLevel as any)[-1]) {
-      const sel = { ...base.selectedByLevel };
-      delete (sel as any)[-1];
-      base.selectedByLevel = sel;
-    }
-
     // Padre del primer nivel de hijos = start
     base.parentTrail = [{ level: start.level, value: start.value, label: start.label ?? start.value }];
 
@@ -554,9 +547,7 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
       if (Object.keys(parentDict).length) sel[-1] = parentDict;
       else delete sel[-1];
     } else {
-      // Selecciona el padre y limpia la selección de hijos en depth 0
-      sel[-1] = { [parent.value]: parent.label };
-      delete sel[0];
+      sel[-1] = { ...(sel[-1] || {}), [parent.value]: parent.label };
     }
 
     st.selectedByLevel = sel;

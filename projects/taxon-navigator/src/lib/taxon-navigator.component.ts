@@ -380,11 +380,32 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
 
     const level = st.currentLevel;
 
-    // Si el padre estaba seleccionado (key -1), lo quitamos al seleccionar un hijo en depth 0
-    if (level === 0 && (st.selectedByLevel as any)[-1]) {
-      const sel: any = { ...st.selectedByLevel };
-      delete sel[-1];
-      st.selectedByLevel = sel;
+    // Si el padre ACTUAL (parentTrail[0]) está en key -1, quitar solo ese padre
+    // y materializar sus hermanos como selección explícita (excepto el nodo togglado)
+    if (level === 0) {
+      const currentParent = st.parentTrail[0];
+      const keyMinus1: any = (st.selectedByLevel as any)[-1];
+      if (currentParent && keyMinus1?.[currentParent.value]) {
+        const sel: any = { ...st.selectedByLevel };
+
+        const parentDict = { ...sel[-1] };
+        delete parentDict[currentParent.value];
+        if (Object.keys(parentDict).length) sel[-1] = parentDict;
+        else delete sel[-1];
+
+        sel[0] = sel[0] ? { ...sel[0] } : {};
+        st.currentNodes.forEach(n => {
+          if (n.value !== node.value) sel[0][n.value] = n.label;
+        });
+        if (!Object.keys(sel[0]).length) delete sel[0];
+
+        st.selectedByLevel = sel;
+        const map = { ...this.statesBySource() };
+        map[st.sourceId] = st;
+        this.statesBySource.set(map);
+        this.emitSelection();
+        return;
+      }
     }
 
     const anc = this.getSelectedAncestorInfo(st, level);
@@ -435,6 +456,13 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
   isSelectedValue(value: string): boolean {
     const st = this.activeState();
     if (!st) return false;
+
+    // Si el padre actual (parentTrail[0]) está en key -1, todos sus hijos están implícitamente seleccionados
+    if (st.currentLevel === 0) {
+      const currentParent = st.parentTrail[0];
+      if (currentParent && (st.selectedByLevel as any)[-1]?.[currentParent.value]) return true;
+    }
+
     if (this.getSelectedAncestorInfo(st, st.currentLevel)) return true;
     return !!st.selectedByLevel[st.currentLevel]?.[value];
   }
@@ -548,6 +576,13 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
       else delete sel[-1];
     } else {
       sel[-1] = { ...(sel[-1] || {}), [parent.value]: parent.label };
+      // Quitar del nivel 0 los hijos del padre recién seleccionado (quedan cubiertos por el padre)
+      if (sel[0]) {
+        const clean0 = { ...sel[0] };
+        st.currentNodes.forEach(n => delete clean0[n.value]);
+        if (Object.keys(clean0).length) sel[0] = clean0;
+        else delete sel[0];
+      }
     }
 
     st.selectedByLevel = sel;

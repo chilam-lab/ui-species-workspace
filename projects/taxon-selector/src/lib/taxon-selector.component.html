@@ -2,6 +2,7 @@
 
 <mat-tab-group
   *ngIf="sources().length > 1"
+  [selectedIndex]="selectedTabIndex()"
   (selectedIndexChange)="onSourceTabChange($event)">
   <mat-tab *ngFor="let s of sources()" [label]="s.nombre"></mat-tab>
 </mat-tab-group>

@@ -1,7 +1,7 @@
-import { Component, EventEmitter, Output, OnInit, signal } from '@angular/core';
+import { Component, EventEmitter, Output, Input, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RegionSelectorService, Region, ResolutionOption } from './services/region-selector.service';
+import { RegionSelectorService, Region, ResolutionOption, DataSource } from './services/region-selector.service';
 
 @Component({
   selector: 'app-region-selector',
@@ -13,6 +13,11 @@ import { RegionSelectorService, Region, ResolutionOption } from './services/regi
 })
 export class RegionSelectorComponent implements OnInit {
 
+  /** Fuentes habilitadas para este selector (null = todas) */
+  @Input() enabledSourceIds: number[] | null = null;
+
+  /** NUEVO: emite la fuente de datos seleccionada (id_source) */
+  @Output() sourceSelected = new EventEmitter<number>();
   /** Emites la región seleccionada (id) como antes */
   @Output() regionSelected = new EventEmitter<number>();
   /** Mantengo compatibilidad: emite la etiqueta de resolución (string) */
@@ -20,9 +25,11 @@ export class RegionSelectorComponent implements OnInit {
   /** NUEVO: emite el grid_id de la resolución seleccionada */
   @Output() gridIdSelected = new EventEmitter<number>();
 
+  sources = signal<DataSource[]>([]);
   regions = signal<Region[]>([]);
   resolutions = signal<ResolutionOption[]>([]);
 
+  selectedSourceId: number | null = null;
   /** Defaults: puedes cambiarlos según tu caso */
   selectedRegionId: number = 1;
   /** El <select> de resoluciones ahora guarda el grid_id (value) */
@@ -33,7 +40,37 @@ export class RegionSelectorComponent implements OnInit {
   constructor(private regionService: RegionSelectorService) {}
 
   ngOnInit() {
-    this.regionService.getRegionOptions().subscribe((data: Region[]) => {
+    this.regionService.getSources().subscribe({
+      next: (srcs) => {
+        const list = this.filterSourcesByInput(srcs ?? []);
+        this.sources.set(list);
+
+        const initial = list.length > 0 ? list[0] : { id_source: 1, nombre: 'SNIB' };
+        this.selectedSourceId = initial.id_source;
+        this.sourceSelected.emit(this.selectedSourceId);
+
+        this.loadRegionsForSource(this.selectedSourceId);
+      },
+      error: (err) => {
+        console.error('Error cargando fuentes (/mdf/sources):', err);
+        this.selectedSourceId = 1;
+        this.sourceSelected.emit(this.selectedSourceId);
+        this.loadRegionsForSource(this.selectedSourceId);
+      }
+    });
+  }
+
+  private filterSourcesByInput(list: DataSource[]): DataSource[] {
+    if (!Array.isArray(list)) return [];
+    if (this.enabledSourceIds && this.enabledSourceIds.length > 0) {
+      const allowed = new Set(this.enabledSourceIds);
+      return list.filter(s => allowed.has(s.id_source));
+    }
+    return list;
+  }
+
+  private loadRegionsForSource(sourceId: number | null) {
+    this.regionService.getRegionOptions(sourceId).subscribe((data: Region[]) => {
       this.regions.set(data);
 
       // Selecciona región por default
@@ -54,8 +91,22 @@ export class RegionSelectorComponent implements OnInit {
           this.resolutionSelected.emit(this.selectedResolutionLabel);
           this.gridIdSelected.emit(this.selectedGridId);
         }
+      } else {
+        this.selectedGridId = null;
+        this.selectedResolutionLabel = '';
       }
     });
+  }
+
+  onSourceChange() {
+    // El <select> nativo entrega el value como string; coerce a number (mismo
+    // patrón que onRegionChange/onResolutionChange) para que las comparaciones
+    // estrictas contra id_source (number) no fallen silenciosamente.
+    this.selectedSourceId = this.selectedSourceId != null ? +this.selectedSourceId : null;
+    this.sourceSelected.emit(this.selectedSourceId!);
+    // Al cambiar de fuente, la región/resolución válidas pueden cambiar por completo.
+    this.selectedRegionId = 1;
+    this.loadRegionsForSource(this.selectedSourceId);
   }
 
   onRegionChange() {

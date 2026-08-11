@@ -1,4 +1,13 @@
 <div class="selector-container">
+  <div class="field" *ngIf="sources().length > 1">
+    <label for="source">Fuente datos</label>
+    <select id="source" [(ngModel)]="selectedSourceId" (change)="onSourceChange()">
+      <option *ngFor="let s of sources()" [value]="s.id_source">
+        {{ s.nombre }}
+      </option>
+    </select>
+  </div>
+
   <div class="field">
     <label for="region">Región</label>
     <select id="region" [(ngModel)]="selectedRegionId" (change)="onRegionChange()">

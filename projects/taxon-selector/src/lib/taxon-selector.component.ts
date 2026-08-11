@@ -1,6 +1,8 @@
 import {
   Component,
   OnInit,
+  OnChanges,
+  SimpleChanges,
   signal,
   inject,
   ViewChild,
@@ -31,7 +33,6 @@ import {
   MatAutocompleteSelectedEvent,
   MatAutocompleteTrigger
 } from '@angular/material/autocomplete';
-
 import { MatTabsModule } from '@angular/material/tabs';
 
 import { TaxonChannelService, isLayerSource } from 'taxon-shared';
@@ -54,10 +55,10 @@ import { TaxonChannelService, isLayerSource } from 'taxon-shared';
   styleUrls: ['./taxon-selector.component.scss'],
   providers: [TaxonSelectorService]
 })
-export class TaxonSelectorComponent implements OnInit {
+export class TaxonSelectorComponent implements OnInit, OnChanges {
   private service = inject(TaxonSelectorService);
   private channel = inject(TaxonChannelService);
-  
+
   @Output() speciesSelected = new EventEmitter<Species>();
 
   @ViewChild(MatAutocompleteTrigger) autoTrigger?: MatAutocompleteTrigger;
@@ -65,8 +66,11 @@ export class TaxonSelectorComponent implements OnInit {
   @Input() enabledSourceIds: number[] | null = null; // null = todas
   @Input() forceSourceId: number | null = null;      // opcional: forzar una sola
 
+  // Catálogo completo de fuentes tal como llegó de /mdf/sources, antes de filtrar
+  private rawSources: TaxonSource[] = [];
+  private sourcesLoaded = false;
 
-  // ====== Tabs (Fuentes) ======
+  // ====== Fuente(s) ======
   sources = signal<TaxonSource[]>([]);
   selectedSourceId = signal<number>(1); // id_source actual
 
@@ -89,31 +93,15 @@ export class TaxonSelectorComponent implements OnInit {
     // 1) Cargar fuentes
     this.service.getSources().subscribe({
       next: (srcs) => {
-        // const list = srcs ?? [];
-        const raw = srcs ?? [];
-        const list = this.filterSourcesByInput(raw);
-
-        if (!list.length) {
-          console.warn('No hay fuentes habilitadas con la configuración actual.');
-          this.sources.set([]);
-          this.resetState();
-          return;
-        }
-
-        this.sources.set(list);
-
-        const initial = list.length > 0 ? list[0] : { id_source: 1, nombre: 'SNIB' };
-        this.selectedSourceId.set(initial.id_source);
-        this.selectedSourceName.set(initial.nombre ?? '');
-
-        // 2) reset y cargar niveles
-        this.resetState();
-        this.loadLevelsForSource(initial.id_source);
+        this.rawSources = srcs ?? [];
+        this.sourcesLoaded = true;
+        this.applySourceFilter();
       },
       error: (err) => {
         console.error('Error cargando fuentes (/mdf/sources):', err);
 
-        const fallbackId = 1;
+        const fallbackId = this.forceSourceId ?? 1;
+        this.sources.set([]);
         this.selectedSourceId.set(fallbackId);
         this.selectedSourceName.set('SNIB');
 
@@ -156,19 +144,74 @@ export class TaxonSelectorComponent implements OnInit {
     });
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    // enabledSourceIds/forceSourceId pueden llegar después del ngOnInit (ej. cuando
+    // los define un componente hermano tras su propia llamada async a /mdf/sources).
+    // Reaplicamos el filtro cuando cambian, sin esperar a que coincida el timing.
+    if (!this.sourcesLoaded) return;
+    if (changes['forceSourceId'] || changes['enabledSourceIds']) {
+      this.applySourceFilter();
+    }
+  }
+
+  private applySourceFilter(): void {
+    const list = this.filterSourcesByInput(this.rawSources);
+
+    if (!list.length) {
+      console.warn('No hay fuentes habilitadas con la configuración actual.');
+      this.sources.set([]);
+      this.resetState();
+      return;
+    }
+
+    this.sources.set(list);
+
+    const wanted = this.forceSourceId != null
+      ? list.find(s => s.id_source === Number(this.forceSourceId))
+      : null;
+    const initial = wanted ?? list[0];
+
+    if (initial.id_source === this.selectedSourceId() && this.taxonomicLevels().length > 0) {
+      return; // ya está en la fuente correcta, no recargar innecesariamente
+    }
+
+    this.selectedSourceId.set(initial.id_source);
+    this.selectedSourceName.set(initial.nombre ?? '');
+
+    this.resetState();
+    this.loadLevelsForSource(initial.id_source);
+  }
+
   private filterSourcesByInput(list: TaxonSource[]): TaxonSource[] {
     if (!Array.isArray(list)) return [];
 
     if (this.forceSourceId != null) {
-      return list.filter(s => s.id_source === this.forceSourceId);
+      const fid = Number(this.forceSourceId);
+      return list.filter(s => s.id_source === fid);
     }
 
     if (this.enabledSourceIds && this.enabledSourceIds.length > 0) {
-      const allowed = new Set(this.enabledSourceIds);
-      return list.filter(s => allowed.has(s.id_source));
+      // Respeta el orden de enabledSourceIds (no el del catálogo), para que quien lo
+      // consuma pueda decidir cuál fuente aparece primero (ej. la del Target).
+      const bySourceId = new Map(list.map(s => [s.id_source, s]));
+      const ordered: TaxonSource[] = [];
+      for (const id of this.enabledSourceIds.map(Number)) {
+        const s = bySourceId.get(id);
+        if (s) ordered.push(s);
+      }
+      return ordered;
     }
 
     return list;
+  }
+
+  selectedTabIndex(): number {
+    const id = this.selectedSourceId();
+    const list = this.sources();
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].id_source === id) return i;
+    }
+    return 0;
   }
 
   // ====== Tabs: handler ======

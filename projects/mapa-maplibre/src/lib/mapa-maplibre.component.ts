@@ -48,6 +48,10 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges {
   /** Evento para la tabla */
   @Output() epsScrRelReady = new EventEmitter<any[]>();
 
+  /** uuid + scoreDeciles de la misma respuesta que ya pintó el mapa: evita que el
+   *  padre tenga que disparar su propio POST a getEpsScrRelation solo para esto. */
+  @Output() epsScrExtrasReady = new EventEmitter<{ uuid: string | null; scoreDeciles: any[] }>();
+
   @ViewChild('mapEl', { static: true }) mapEl!: ElementRef<HTMLDivElement>;
 
   private map!: maplibregl.Map;
@@ -326,17 +330,19 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges {
       this.geojsonService.getEpsScrRelationUnified(payload)
         .pipe(finalize(() => this.setLoading(false))) // 🔓 Loading OFF en cualquier caso
         .subscribe({
-          next: ({ cells, rel }) => {
+          next: ({ cells, rel, uuid, scoreDeciles }) => {
             const cellsArr = Array.isArray(cells) ? cells : [];
             const relArr   = Array.isArray(rel)   ? rel   : [];
 
             this.applyScoresFromEpsScr(cellsArr); // pinta con rampa discreta por rangos
             this.epsScrRelReady.emit(relArr);     // tabla
+            this.epsScrExtrasReady.emit({ uuid: uuid ?? null, scoreDeciles: scoreDeciles ?? [] }); // uuid + deciles para histogramas
           },
           error: (err) => {
             console.error('getEpsScrRelation error:', err);
             // En caso de error, emitimos vacío para que el padre/libere su UI
             this.epsScrRelReady.emit([]);
+            this.epsScrExtrasReady.emit({ uuid: null, scoreDeciles: [] });
           }
         });
     });

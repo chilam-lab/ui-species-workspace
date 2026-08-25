@@ -44,12 +44,16 @@ export type EpsScrResponse = {
   /** El backend a veces entrega con 'l' o con 'p' */
   EpsScrRel?: EpsScrRelRow[];
   EpsScrpRel?: EpsScrRelRow[];
+  uuid?: string;
+  scoreDeciles?: any[];
 };
 
 /** Resultado ya normalizado para usar en Mapa + Tabla */
 export type EpsScrUnified = {
   cells: EpsScrCell[];   // para el mapa (feature-state: score)
   rel: EpsScrRelRow[];   // para la tabla (EpsScrRel/EpsScrpRel)
+  uuid: string | null;   // para histogramas (getFrequencyByRange/getEpsScrByCell)
+  scoreDeciles: any[];   // para el panel de Distribuciones
 };
 
 /* ============ Servicio ============ */
@@ -110,11 +114,13 @@ export class MapaMaplibreService {
           : Array.isArray(resp?.EpsScrpRel)
           ? resp!.EpsScrpRel!
           : [];
+        const uuid = resp?.uuid ?? null;
+        const scoreDeciles = Array.isArray(resp?.scoreDeciles) ? resp!.scoreDeciles! : [];
 
         // (Opcional) emitir para quien se suscriba al service:
         this.epsScrRelReady.emit(rel);
 
-        return { cells, rel };
+        return { cells, rel, uuid, scoreDeciles };
       })
     );
   }

@@ -114,7 +114,7 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
     this.searchControl.valueChanges.pipe(
       debounceTime(300),
       distinctUntilChanged(),
-      filter(value => typeof value === 'string' && value.length >= 3),
+      filter(value => typeof value === 'string' && value.length >= this.minSearchLength()),
       tap(() => this.loading.set(true)),
       filter((value): value is string => value !== null),
       switchMap((value: string) =>
@@ -265,6 +265,28 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
     }
   }
 
+  // Categoria (bins de DEM) no tiene nombre propio: se busca por percentil (1-10)
+  // o por fragmento del rango numérico, ambos más cortos que el mínimo general de 3.
+  minSearchLength(): number {
+    return this.selectedLevel?.variable === 'categoria' ? 1 : 3;
+  }
+
+  searchPlaceholder(): string {
+    const min = this.minSearchLength();
+    return min <= 1
+      ? 'Escribe un percentil (1-10) o un valor de rango...'
+      : `Escribe al menos ${min} caracteres...`;
+  }
+
+  private formatRangeTag(tag: string): string {
+    const parts = String(tag ?? '').split(':');
+    if (parts.length !== 2) return String(tag ?? '');
+    const a = parseFloat(parts[0]);
+    const b = parseFloat(parts[1]);
+    if (Number.isNaN(a) || Number.isNaN(b)) return String(tag ?? '');
+    return `${a.toFixed(2)} : ${b.toFixed(2)}`;
+  }
+
   // ===========================
   // Render helpers (SNIB/GBIF vs fuentes layer)
   // ===========================
@@ -273,7 +295,16 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
 
     if (isLayerSource(this.selectedSourceName())) {
       const d: any = (item as any)?.data ?? {};
-      return (d.layer ?? d.descripcion ?? String(item.id ?? '')).toString();
+
+      // Bins/rangos (DEM 'categoria', WorldClim 'Rango'): d.label es el nombre de la
+      // fuente compartido por todos los bins, no distingue uno de otro — usar el rango.
+      if (d.tag) {
+        const roundedTag = this.formatRangeTag(d.tag);
+        const prefix = d.bin_index != null ? `Percentil ${d.bin_index}` : (d.layer ?? '');
+        return prefix ? `${prefix} [${roundedTag}]` : roundedTag;
+      }
+
+      return (d.label ?? d.layer ?? d.descripcion ?? String(item.id ?? '')).toString();
     }
 
     // SNIB/GBIF
@@ -345,6 +376,14 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
       return v ? String(v).trim() : null;
     }
 
+    // Categoria (bins de DEM) -> d.categoria es el layer compartido ("dem001"),
+    // no distingue un bin de otro. El id real del bin viene en species.level_id.
+    if (key === 'categoria') {
+      const lv = (species as any)?.level_id;
+      const v = Array.isArray(lv) ? lv[0] : lv;
+      return v != null ? String(v).trim() : null;
+    }
+
     // Fallback genérico con lookup case-insensitive en data
     // (soporta niveles con nombres arbitrarios: elevation_q10, categoria, etc.)
     const lowerMap: Record<string, any> = Object.keys(d).reduce((acc, k) => {
@@ -375,9 +414,9 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
       }
 
 
-      // Para Layer, mostrar bio001 / bio002...
+      // Para Layer, mostrar el nombre humano (Annual Mean Temperature) en vez del id (bio001)
       if (key === 'layer') {
-        return (d.layer ?? this.getOptionLabel(species) ?? fallbackValue ?? '').toString().trim();
+        return (d.label ?? d.layer ?? this.getOptionLabel(species) ?? fallbackValue ?? '').toString().trim();
       }
 
       return this.getOptionLabel(species) || (fallbackValue ?? '');

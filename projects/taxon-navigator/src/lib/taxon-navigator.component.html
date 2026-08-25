@@ -1,17 +1,17 @@
 <!-- Mensaje inicial -->
-<div *ngIf="!currentChildLevel">
+<div *ngIf="!currentChildLevel && !activeParentInfo">
   Selecciona un inicio desde el selector taxonómico.
 </div>
 
 <!-- Layout 2 columnas: izquierda navegación, derecha seleccionados -->
-<div class="navigator-grid" *ngIf="currentChildLevel">
+<div class="navigator-grid" *ngIf="currentChildLevel || activeParentInfo">
 
   <!-- Columna izquierda: navegador -->
   <div class="nav-col">
 
     <!-- Barra superior fuera del scroll -->
     <div class="navigator-controls">
-      <h3>Selecciona {{ currentChildLevel }}</h3>
+      <h3>Selecciona {{ currentChildLevel || activeParentInfo?.level }}</h3>
       <button mat-stroked-button color="primary"
               (click)="goBack()" [disabled]="pathStack().length <= 1">
         <mat-icon>arrow_back</mat-icon>
@@ -71,7 +71,9 @@
         </button>
       </div>
 
-      <div class="empty" *ngIf="!currentNodes()?.length">
+      <!-- Solo aplica cuando SÍ hay un nivel de hijos a mostrar pero vino vacío;
+           un nivel terminal (sin currentChildLevel) no tiene hijos por diseño. -->
+      <div class="empty" *ngIf="currentChildLevel && !currentNodes()?.length">
         No hay elementos para este nivel.
       </div>
     </div>

@@ -274,22 +274,9 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges {
       return;
     }
 
-    if (this.gridId == null) return;
-    this.geojsonService.getCellValues(this.gridId).subscribe((serverArr) => {
-      if (!Array.isArray(serverArr)) return;
-      let applied = 0;
-      for (const it of serverArr) {
-        const raw = (it as any).cell_id ?? (it as any).cell_is ?? (it as any).cellId ?? (it as any).id;
-        const coercedId = this.coerceIdType(raw);
-        const occ = Number((it as any).occ);
-        if (coercedId == null || Number.isNaN(occ)) continue;
-
-        this.map.setFeatureState({ source: sourceId, id: coercedId }, { occ } as any);
-        this.lastOccIds.add(coercedId);
-        applied++;
-      }
-      console.log(`[Maplibre:${this.mapId}] Estados aplicados desde fallback (occ): ${applied}`);
-    });
+    // Sin occValues no hay ocurrencias que pintar para esta selección — no hay
+    // nada más que intentar. (Antes caía en un fallback a getCellValuesByGridid,
+    // un endpoint que nunca se implementó en el backend y siempre daba 404.)
   }
 
   private fitToGeojsonBounds(fc: any) {

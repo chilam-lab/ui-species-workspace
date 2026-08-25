@@ -62,7 +62,6 @@ export class MapaMaplibreService {
   private apiBaseUrl = inject(API_BASE_URL);
 
   private readonly geojsonUrl   = `${this.apiBaseUrl}/mdf/getGeoJsonbyGridid`;
-  private readonly cellValuesUrl= `${this.apiBaseUrl}/mdf/getCellValuesByGridid`;
   private readonly epsScrUrl    = `${this.apiBaseUrl}/mdf/getEpsScrRelation`;
 
   /** Opcional: si quieres emitir desde el service (no es obligatorio) */
@@ -73,14 +72,6 @@ export class MapaMaplibreService {
   getGeojson(grid_id: number): Observable<any> {
     return this.http.post<any>(
       this.geojsonUrl,
-      { grid_id },
-      { headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  getCellValues(grid_id: number): Observable<Array<{ cell_id?: number|string; cell_is?: number|string; occ: number }>> {
-    return this.http.post<Array<{ cell_id?: number|string; cell_is?: number|string; occ: number }>>(
-      this.cellValuesUrl,
       { grid_id },
       { headers: { 'Content-Type': 'application/json' } }
     );

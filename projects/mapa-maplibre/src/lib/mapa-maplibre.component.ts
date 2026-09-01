@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, Input, OnChanges, SimpleChanges, ViewChild, ElementRef, EventEmitter, Output } from '@angular/core';
+import { Component, AfterViewInit, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, ElementRef, EventEmitter, Output, NgZone } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -21,7 +21,7 @@ type LegendItem = { color: string; label: string };
   styleUrls: ['./mapa-maplibre.component.scss'],
   providers: [MapaMaplibreService]
 })
-export class MapaMaplibreComponent implements AfterViewInit, OnChanges {
+export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() mapId: string = 'map-default';
 
   /** Control de capas */
@@ -68,6 +68,13 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges {
   private lastOccIds = new Set<number | string>();
   private lastScoreIds = new Set<number | string>();
 
+  /** Si un cambio de 'run'/'occValues' llega antes de que el mapa termine de
+   *  cargar (evento 'load' de maplibre), se guarda aquí y se re-ejecuta en
+   *  cuanto el mapa esté listo, en vez de perderse silenciosamente. */
+  private pendingRun = false;
+  private pendingOccUpdate = false;
+  private pendingEpsScrPayload: EpsScrPayload | null = null;
+
   /** promoteId dinámico */
   private promoteIdKey: string = 'id';
   private featureIdType: 'number' | 'string' = 'number';
@@ -75,53 +82,119 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges {
   /** Leyenda renderizable */
   public legendItems: LegendItem[] = [];
 
-  constructor(private geojsonService: MapaMaplibreService) {}
+  constructor(private geojsonService: MapaMaplibreService, private ngZone: NgZone) {}
 
   ngAfterViewInit(): void {
-    console.log('[MAP LOCAL] Soy el componente local que editaste');
-    
-    this.layerControl = new DynamicLayerControl([], () => this.mapId);
-
-    this.map = new maplibregl.Map({
-      container: this.mapEl.nativeElement,
-      style: {
-        version: 8,
-        sources: {
-          thunderforest: {
-            type: 'raster',
-            tiles: [
-              'https://{s}.tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=ec5ffebe46bb43a5a9cb8700c882be4b'.replace('{s}', 'a')
-            ],
-            tileSize: 256,
-            attribution: 'Maps © Thunderforest, Data © OpenStreetMap contributors'
-          }
-        },
-        layers: [
-          { id: `${this.mapId}-thunderforest`, type: 'raster', source: 'thunderforest', minzoom: 0, maxzoom: 22 }
-        ]
-      },
-      center: [-102.5528, 23.6345],
-      zoom: 8,
-    });
-
-    this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-
-    if (this.showLayerControl) {
-      this.map.addControl(this.layerControl, 'top-right');
+    const rect = this.mapEl?.nativeElement?.getBoundingClientRect();
+    console.log(`[Maplibre:${this.mapId}] ngAfterViewInit — contenedor: ${rect?.width}x${rect?.height}px`);
+    if (!rect || rect.width === 0 || rect.height === 0) {
+      console.warn(`[Maplibre:${this.mapId}] El contenedor tiene tamaño 0 al momento de crear el mapa — probable causa de que no se vea nada. Revisar CSS del padre (.map-wrap / .map-card).`);
     }
 
-    this.map.on('load', () => {
-      this.mapLoaded = true;
-      requestAnimationFrame(() => this.map.resize());
+    // 🔒 TODO el ciclo de vida interno de maplibregl.Map (su loop de render
+    // vía requestAnimationFrame, sus listeners de mousemove/resize, la
+    // animación de fade-in de tiles) debe construirse FUERA de la zona de
+    // Angular. maplibregl agenda rAF continuamente mientras el mapa está
+    // "vivo" (no solo durante una animación puntual); si el mapa se crea
+    // dentro de la zona, zone.js parcha esos rAF y CADA frame interno de
+    // MapLibre dispara un ciclo COMPLETO de change detection sobre todo el
+    // árbol de Angular — confirmado en vivo: el tab quedó al 99% CPU de forma
+    // sostenida (varios minutos) después de que los datos ya habían llegado
+    // y pintado, con creación/destrucción masiva de vistas (createTask/
+    // insertBefore) en el profiler, sin relación con ninguna petición nueva.
+    // Solo se reentra a la zona (ngZone.run) en los puntos donde el propio
+    // template de este componente o el padre necesitan enterarse (leyenda,
+    // @Output) — mismo patrón que ya se usaba en getEpsScrRelation().
+    this.ngZone.runOutsideAngular(() => {
+      this.layerControl = new DynamicLayerControl([], () => this.mapId);
 
-      setTimeout(() => this.map.resize(), 250);
-      // Si ya venían breaks/colors por @Input, arma la leyenda inicial
-      this.rebuildLegendFromInputs();
+      this.map = new maplibregl.Map({
+        container: this.mapEl.nativeElement,
+        style: {
+          version: 8,
+          sources: {
+            thunderforest: {
+              type: 'raster',
+              tiles: [
+                'https://{s}.tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=ec5ffebe46bb43a5a9cb8700c882be4b'.replace('{s}', 'a')
+              ],
+              tileSize: 256,
+              attribution: 'Maps © Thunderforest, Data © OpenStreetMap contributors'
+            }
+          },
+          layers: [
+            { id: `${this.mapId}-thunderforest`, type: 'raster', source: 'thunderforest', minzoom: 0, maxzoom: 22 }
+          ]
+        },
+        center: [-102.5528, 23.6345],
+        zoom: 8,
+      });
+
+      this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+      if (this.showLayerControl) {
+        this.map.addControl(this.layerControl, 'top-right');
+      }
+
+      this.map.on('error', (e: any) => {
+        console.error(`[Maplibre:${this.mapId}] map error:`, e?.error ?? e);
+      });
+
+      this.map.on('load', () => {
+        this.mapLoaded = true;
+        const rectAtLoad = this.mapEl?.nativeElement?.getBoundingClientRect();
+        console.log(`[Maplibre:${this.mapId}] evento 'load' — contenedor: ${rectAtLoad?.width}x${rectAtLoad?.height}px`);
+        requestAnimationFrame(() => this.map.resize());
+
+        setTimeout(() => this.map.resize(), 250);
+
+        // rebuildLegendFromInputs() muta legendItems, que SÍ está enlazado
+        // en el template de este componente (leyenda) — reentramos a la
+        // zona solo para esto, así Angular pinta el cambio.
+        this.ngZone.run(() => this.rebuildLegendFromInputs());
+
+        // Reproduce cualquier cambio de run/occValues que haya llegado mientras
+        // el mapa todavía estaba cargando (ver ngOnChanges).
+        if (this.pendingRun) {
+          this.pendingRun = false;
+          this.pendingOccUpdate = false;
+          this.handleRun();
+        } else if (this.pendingOccUpdate) {
+          this.pendingOccUpdate = false;
+          this.applyOccWhenSourceReady();
+        }
+
+        // Igual para un getEpsScrRelation() que haya llegado antes de tiempo —
+        // sin esto, isAnalyzingNiche del padre se quedaba en true para siempre
+        // (el padre nunca recibía epsScrRelReady/epsScrExtrasReady).
+        if (this.pendingEpsScrPayload) {
+          const payload = this.pendingEpsScrPayload;
+          this.pendingEpsScrPayload = null;
+          this.getEpsScrRelation(payload);
+        }
+      });
     });
   }
 
+  ngOnDestroy(): void {
+    // CRÍTICO: sin esto, el objeto maplibregl.Map (su loop de render, sus
+    // listeners de mouse/window, sus Web Workers de tiles) sigue vivo en
+    // memoria para siempre después de que Angular destruye el componente al
+    // navegar a otro paso — se van acumulando instancias "fantasma" con cada
+    // ida y vuelta entre pasos, cada una compitiendo por CPU/DOM. Confirmado
+    // como causa raíz del bloqueo del navegador tras varias navegaciones
+    // (profiler: createTask/insertBefore + Animation frame fired + Event:
+    // mousemove acumulándose, sin relación con la petición actual).
+    console.log(`[Maplibre:${this.mapId}] ngOnDestroy — liberando instancia de maplibregl.Map`);
+    this.map?.remove();
+  }
+
   ngOnChanges(ch: SimpleChanges): void {
-    if (!this.mapLoaded) return;
+    if (!this.mapLoaded) {
+      if ('run' in ch && !ch['run'].firstChange) this.pendingRun = true;
+      if ('occValues' in ch && !ch['occValues'].firstChange) this.pendingOccUpdate = true;
+      return;
+    }
 
     if ('run' in ch && !ch['run'].firstChange) {
       this.handleRun();
@@ -307,31 +380,54 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges {
 
   /** Público: pinta total_score de EpsScrRelation y emite filas para la tabla */
   public getEpsScrRelation(payload: EpsScrPayload) {
-    if (!this.mapLoaded) { console.warn('Mapa aún no cargado.'); return; }
+    if (!this.mapLoaded) {
+      console.warn('Mapa aún no cargado; getEpsScrRelation queda pendiente hasta el evento load.');
+      this.pendingEpsScrPayload = payload;
+      return;
+    }
     if (!payload?.grid_id) { console.warn('getEpsScrRelation requiere grid_id.'); return; }
 
     // 🔒 Loading ON al iniciar la operación
     this.setLoading(true);
+    const t0 = performance.now();
+    console.log(`[Maplibre:${this.mapId}] getEpsScrRelation: solicitando al backend…`, payload);
 
-    this.ensureMeshThen(payload.grid_id, () => {
-      this.geojsonService.getEpsScrRelationUnified(payload)
-        .pipe(finalize(() => this.setLoading(false))) // 🔓 Loading OFF en cualquier caso
-        .subscribe({
-          next: ({ cells, rel, uuid, scoreDeciles }) => {
-            const cellsArr = Array.isArray(cells) ? cells : [];
-            const relArr   = Array.isArray(rel)   ? rel   : [];
+    // Todo este flujo (carga de malla, HTTP, y sobre todo el pintado de
+    // cientos de setFeatureState en applyScoresFromEpsScr) corre FUERA de la
+    // zona de Angular a propósito: cada repintado interno que MapLibre agenda
+    // como reacción (vía requestAnimationFrame/postMessage, que zone.js sí
+    // parcha) disparaba, estando dentro de la zona, un ciclo COMPLETO de
+    // detección de cambios de Angular sobre TODO el árbol (mapa + 2 tablas +
+    // 3 histogramas) por cada uno — confirmado con el profiler: 61.9% del
+    // tiempo total (16.4s) atribuido a NgZone.onStable/checkStable. Solo se
+    // vuelve a entrar a la zona (ngZone.run) en los puntos exactos donde el
+    // padre necesita enterarse (los dos @Output y el flag de loading).
+    this.ngZone.runOutsideAngular(() => {
+      this.ensureMeshThen(payload.grid_id, () => {
+        this.geojsonService.getEpsScrRelationUnified(payload)
+          .pipe(finalize(() => this.ngZone.run(() => this.setLoading(false)))) // 🔓 Loading OFF en cualquier caso
+          .subscribe({
+            next: ({ cells, rel, uuid, scoreDeciles }) => {
+              const cellsArr = Array.isArray(cells) ? cells : [];
+              const relArr   = Array.isArray(rel)   ? rel   : [];
+              console.log(`[Maplibre:${this.mapId}] Respuesta del backend en ${(performance.now() - t0).toFixed(0)}ms — cells: ${cellsArr.length}, rel: ${relArr.length}`);
 
-            this.applyScoresFromEpsScr(cellsArr); // pinta con rampa discreta por rangos
-            this.epsScrRelReady.emit(relArr);     // tabla
-            this.epsScrExtrasReady.emit({ uuid: uuid ?? null, scoreDeciles: scoreDeciles ?? [] }); // uuid + deciles para histogramas
-          },
-          error: (err) => {
-            console.error('getEpsScrRelation error:', err);
-            // En caso de error, emitimos vacío para que el padre/libere su UI
-            this.epsScrRelReady.emit([]);
-            this.epsScrExtrasReady.emit({ uuid: null, scoreDeciles: [] });
-          }
-        });
+              this.applyScoresFromEpsScr(cellsArr); // pinta con rampa discreta por rangos, fuera de la zona
+              this.ngZone.run(() => {
+                this.epsScrRelReady.emit(relArr);     // tabla
+                this.epsScrExtrasReady.emit({ uuid: uuid ?? null, scoreDeciles: scoreDeciles ?? [] }); // uuid + deciles para histogramas
+              });
+            },
+            error: (err) => {
+              console.error('getEpsScrRelation error:', err);
+              // En caso de error, emitimos vacío para que el padre/libere su UI
+              this.ngZone.run(() => {
+                this.epsScrRelReady.emit([]);
+                this.epsScrExtrasReady.emit({ uuid: null, scoreDeciles: [] });
+              });
+            }
+          });
+      });
     });
   }
 
@@ -431,39 +527,60 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges {
       return;
     }
 
+    console.log(`[Maplibre:${this.mapId}] applyScoresFromEpsScr: ${rows.length} filas recibidas del backend.`);
+
     // Opcional: compresión visual para outliers (no altera datos, solo la vista)
     const USE_TANH = false;
     const BETA = 0.25;
 
+    // rows.length puede ser grande (miles de celdas para combinaciones amplias
+    // de target/covariables) — setFeatureState() en un for síncrono sobre todas
+    // las filas de una sola vez puede congelar la pestaña varios segundos o
+    // minutos (confirmado: reproducido en vivo, la pestaña dejó de responder
+    // incluso a comandos de DevTools). Se procesa en lotes vía
+    // requestAnimationFrame para que el hilo principal respire entre lotes.
+    const CHUNK_SIZE = 2000;
+    let index = 0;
     let applied = 0;
     let minViz = +Infinity;
     let maxViz = -Infinity;
 
-    for (const it of rows) {
-      const coercedId = this.coerceIdType((it as any)?.cell);
-      const raw = Number((it as any)?.total_score);
-      if (coercedId == null || Number.isNaN(raw)) continue;
+    const processChunk = () => {
+      const end = Math.min(index + CHUNK_SIZE, rows.length);
+      for (; index < end; index++) {
+        const it = rows[index];
+        const coercedId = this.coerceIdType((it as any)?.cell);
+        const raw = Number((it as any)?.total_score);
+        if (coercedId == null || Number.isNaN(raw)) continue;
 
-      const viz = USE_TANH ? Math.tanh(BETA * raw) : raw;
+        const viz = USE_TANH ? Math.tanh(BETA * raw) : raw;
 
-      if (viz < minViz) minViz = viz;
-      if (viz > maxViz) maxViz = viz;
+        if (viz < minViz) minViz = viz;
+        if (viz > maxViz) maxViz = viz;
 
-      this.map.setFeatureState({ source: sourceId, id: coercedId }, { score_viz: viz } as any);
-      this.lastScoreIds.add(coercedId);
-      applied++;
-    }
+        this.map.setFeatureState({ source: sourceId, id: coercedId }, { score_viz: viz } as any);
+        this.lastScoreIds.add(coercedId);
+        applied++;
+      }
 
-    console.log(`[Maplibre:${this.mapId}] Scores aplicados: ${applied}, minViz=${minViz}, maxViz=${maxViz}`);
+      if (index < rows.length) {
+        requestAnimationFrame(processChunk);
+        return;
+      }
 
-    // Escalado simétrico centrado en 0 → define edges y PINTA + LEYENDA
-    const maxAbs = Math.max(Math.abs(minViz), Math.abs(maxViz));
-    this.updateNicheScorePaintSymmetric(maxAbs);
+      console.log(`[Maplibre:${this.mapId}] Scores aplicados: ${applied}, minViz=${minViz}, maxViz=${maxViz}`);
 
-    // Si mandas breaks/colors por Input, sobreescribe la leyenda con los tuyos
-    if (this.legendBreaks.length && this.legendColors.length) {
-      this.rebuildLegendFromInputs();
-    }
+      // Escalado simétrico centrado en 0 → define edges y PINTA + LEYENDA
+      const maxAbs = Math.max(Math.abs(minViz), Math.abs(maxViz));
+      this.updateNicheScorePaintSymmetric(maxAbs);
+
+      // Si mandas breaks/colors por Input, sobreescribe la leyenda con los tuyos
+      if (this.legendBreaks.length && this.legendColors.length) {
+        this.rebuildLegendFromInputs();
+      }
+    };
+
+    processChunk();
   }
 
   /** Define rampa DISCRETA por rangos usando 'step' y guarda los rangos para la leyenda */

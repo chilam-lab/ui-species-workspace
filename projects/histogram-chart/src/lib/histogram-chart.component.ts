@@ -1,6 +1,6 @@
 import {
   Component, ViewChild, ElementRef, Input, Output, EventEmitter,
-  OnChanges, SimpleChanges, AfterViewInit, DestroyRef, inject
+  OnChanges, SimpleChanges, AfterViewInit, DestroyRef, inject, NgZone
 } from '@angular/core';
 
 import Chart from 'chart.js/auto';
@@ -51,7 +51,7 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
   // reservado por si quieres mostrar estado
   private hasData = false;
 
-  constructor(private api: HistogramChartService) {}
+  constructor(private api: HistogramChartService, private ngZone: NgZone) {}
 
   // ================== Ciclo de vida ==================
 
@@ -215,7 +215,9 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
 
     // Destruye chart previo si existe
     if (this.chart) {
-      this.chart.destroy();
+      // 🔒 destroy() también debe correr fuera de la zona — ver comentario
+      // más abajo sobre por qué TODO el ciclo de vida de Chart.js se aísla.
+      this.ngZone.runOutsideAngular(() => this.chart!.destroy());
       this.chart = undefined;
     }
 
@@ -298,17 +300,33 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
       }
     };
 
-    this.chart = new Chart(ctx, config);
+    // 🔒 Chart.js agenda su propio ciclo interno (ResizeObserver sobre el
+    // contenedor del canvas, más requestAnimationFrame para el primer
+    // render/resize) que sigue vivo mientras el chart exista — no es un
+    // evento puntual. Igual que con maplibregl.Map (ver comentario en
+    // mapa-maplibre.component.ts), si el chart se construye DENTRO de la
+    // zona de Angular, cada tick de ese ciclo interno reentra a la zona y
+    // dispara un ciclo COMPLETO de change detection sobre toda la app — sin
+    // relación con ningún cambio real. Confirmado en vivo: con este
+    // histograma (customData, 10 barras) siendo el único elemento nuevo del
+    // árbol, el tab quedó pegado al ~100% CPU de forma sostenida (20+ min)
+    // justo después de construirlo; quitándolo, el freeze desaparecía por
+    // completo. Este componente no emite nada Angular-visible desde dentro
+    // de Chart.js (barSelected no está cableado a ningún callback), así que
+    // no hace falta reentrar con ngZone.run() en ningún punto.
+    this.ngZone.runOutsideAngular(() => {
+      this.chart = new Chart(ctx, config);
 
-    if (!labels.length) {
-      const c2d = canvas.getContext('2d')!;
-      c2d.save();
-      c2d.font = '14px system-ui, -apple-system, Segoe UI, Roboto';
-      c2d.fillStyle = '#6b7280';
-      c2d.textAlign = 'center';
-      c2d.fillText('Sin datos', canvas.width / 2, canvas.height / 2);
-      c2d.restore();
-    }
+      if (!labels.length) {
+        const c2d = canvas.getContext('2d')!;
+        c2d.save();
+        c2d.font = '14px system-ui, -apple-system, Segoe UI, Roboto';
+        c2d.fillStyle = '#6b7280';
+        c2d.textAlign = 'center';
+        c2d.fillText('Sin datos', canvas.width / 2, canvas.height / 2);
+        c2d.restore();
+      }
+    });
   }
 
 

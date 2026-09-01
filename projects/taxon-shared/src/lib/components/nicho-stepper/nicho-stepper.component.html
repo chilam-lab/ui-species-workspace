@@ -1,0 +1,23 @@
+<ol class="nicho-stepper">
+  <li
+    *ngFor="let step of steps; let i = index; let last = last"
+    class="nicho-stepper__item"
+    [class.is-done]="step.state === 'done'"
+    [class.is-current]="step.state === 'current'"
+    [class.is-upcoming]="step.state === 'upcoming'">
+
+    <button
+      type="button"
+      class="nicho-stepper__control"
+      [attr.aria-current]="step.state === 'current' ? 'step' : null"
+      (click)="onStepClick(i)">
+      <span class="nicho-stepper__badge">
+        <span *ngIf="step.state === 'done'" class="nicho-stepper__check">&#10003;</span>
+        <span *ngIf="step.state !== 'done'">{{ i + 1 }}</span>
+      </span>
+      <span class="nicho-stepper__label">{{ step.label }}</span>
+    </button>
+
+    <span *ngIf="!last" class="nicho-stepper__connector"></span>
+  </li>
+</ol>

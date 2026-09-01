@@ -1,0 +1,100 @@
+:host {
+  --nicho-primary: #0b1c30;
+  --nicho-secondary: #006c49;
+  --nicho-secondary-container: #6cf8bb;
+  --nicho-on-secondary-container: #00714d;
+  --nicho-outline-variant: #c6c6cd;
+  --nicho-on-surface-variant: #45464d;
+  font-family: 'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.nicho-stepper {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nicho-stepper__item {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.nicho-stepper__control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+  color: inherit;
+  border-radius: 0.375rem;
+}
+.nicho-stepper__control:focus-visible {
+  outline: 2px solid var(--nicho-secondary);
+  outline-offset: 2px;
+}
+
+.nicho-stepper__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid var(--nicho-outline-variant);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--nicho-on-surface-variant);
+  background: #fff;
+  flex: none;
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+}
+
+.nicho-stepper__label {
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--nicho-on-surface-variant);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.nicho-stepper__connector {
+  width: 2.75rem;
+  height: 2px;
+  background: var(--nicho-outline-variant);
+  margin: 0 0.5rem;
+  flex: none;
+}
+
+.is-current .nicho-stepper__badge {
+  border-color: var(--nicho-secondary);
+  background: var(--nicho-secondary);
+  color: #fff;
+}
+.is-current .nicho-stepper__label {
+  color: var(--nicho-primary);
+  font-weight: 700;
+}
+
+.is-done .nicho-stepper__badge {
+  border-color: var(--nicho-secondary);
+  background: var(--nicho-secondary);
+  color: #fff;
+}
+.is-done .nicho-stepper__label {
+  color: var(--nicho-primary);
+}
+.is-done .nicho-stepper__connector,
+.nicho-stepper__item.is-done + .nicho-stepper__item .nicho-stepper__connector {
+  background: var(--nicho-secondary-container);
+}
+
+.nicho-stepper__check {
+  line-height: 1;
+  font-size: 1rem;
+}

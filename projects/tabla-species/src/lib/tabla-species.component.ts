@@ -216,8 +216,20 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
 
 
 
-  /** Datos filtrados (búsqueda + sort) */
-  get filteredData(): any[] {
+  /** Cache de filteredData/paginatedData: el template llama estos getters
+   *  varias veces por ciclo de change detection (filteredData.length en 3
+   *  sitios distintos, paginatedData en 2). Sin cachear, cada llamada volvía
+   *  a filtrar/ordenar TODO el arreglo (spread + sort) desde cero, y con
+   *  varios componentes hermanos (histogramas, mapa) disparando su propio
+   *  ciclo de CD casi al mismo tiempo al llegar sus respuestas HTTP, esto se
+   *  multiplicaba lo suficiente como para congelar la pestaña por completo
+   *  (confirmado: reproducido en vivo, ~32s de "Scripting" en el profiler).
+   */
+  private filteredDataCache: any[] = [];
+  private paginatedDataCache: any[] = [];
+  private lastFilterKey = '';
+
+  private computeFilteredData(): any[] {
     let filtered = this.data;
 
     // filtro de búsqueda
@@ -252,11 +264,27 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
     return filtered;
   }
 
-  /** Datos paginados: lo que realmente se muestra en la tabla */
+  /** Datos filtrados (búsqueda + sort) — memoizado por (data, searchTerm, sortColumn, sortDirection) */
+  get filteredData(): any[] {
+    const key = `${this.data.length}|${this.searchTerm}|${this.sortColumn}|${this.sortDirection}`;
+    if (key !== this.lastFilterKey || this.filteredDataCache === undefined) {
+      this.filteredDataCache = this.computeFilteredData();
+      this.lastFilterKey = key;
+    }
+    return this.filteredDataCache;
+  }
+
+  /** Datos paginados: lo que realmente se muestra en la tabla — memoizado también */
   get paginatedData(): any[] {
+    const fd = this.filteredData; // usa la versión cacheada de arriba
     const start = (this.currentPage - 1) * this.pageSize;
     const end   = start + this.pageSize;
-    return this.filteredData.slice(start, end);
+    const key = `${this.lastFilterKey}|${start}|${end}`;
+    if ((this as any)._lastPageKey !== key) {
+      this.paginatedDataCache = fd.slice(start, end);
+      (this as any)._lastPageKey = key;
+    }
+    return this.paginatedDataCache;
   }
 
   /** Total de páginas */
@@ -307,5 +335,9 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
       this.pageSize = newSize;
       this.currentPage = 1;
     }
+  }
+
+  trackByRowIndex(index: number): number {
+    return index;
   }
 }

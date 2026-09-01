@@ -318,14 +318,25 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
     }
 
     // Para especie, mantener formato "genero especie"
-    const genero = (datos.genero ?? '').toString().trim();
-    const especie = (datos.especie ?? '').toString().trim();
-    const combo = `${genero} ${especie}`.trim();
+    const combo = this.buildEspecieLabel(datos);
 
     return combo || (datos.nombre ?? datos.scientificName ?? String(item.id ?? '')).toString();
+  }
 
+  // El campo 'especie' ya viene con el género concatenado (ej. "Lynx rufus"),
+  // así que sólo se antepone 'genero' cuando 'especie' no lo incluye ya.
+  private buildEspecieLabel(datos: any): string {
+    const genero = (datos.genero ?? '').toString().trim();
+    const especie = (datos.especie ?? '').toString().trim();
+    if (!genero) return especie;
+    if (!especie) return genero;
 
-
+    const generoLower = genero.toLowerCase();
+    const especieLower = especie.toLowerCase();
+    if (especieLower === generoLower || especieLower.startsWith(`${generoLower} `)) {
+      return especie;
+    }
+    return `${genero} ${especie}`.trim();
   }
 
   getOptionSubtitle(item: Species): string {
@@ -425,9 +436,7 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
 
     const datos: any = (species as any)?.datos ?? {};
     if (levelKey === 'especie') {
-      const genero = (datos.genero ?? '').toString().trim();
-      const especie = (datos.especie ?? '').toString().trim();
-      const combo = `${genero} ${especie}`.trim();
+      const combo = this.buildEspecieLabel(datos);
       if (combo) return combo;
     }
     return fallbackValue ?? '';

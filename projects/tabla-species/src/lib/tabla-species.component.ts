@@ -140,9 +140,10 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
           decil: this.decile ?? null,
 
           // Nombres de especies
+          // Sin columnas id en este modo: cada contexto junto a la especie de su lado.
           especie_target: this.especieDe(item?.metadata_target),
-          especie_covar: this.especieDe(item?.metadata_covars),
           contexto_target: this.contextoDe(item?.metadata_target),
+          especie_covar: this.especieDe(item?.metadata_covars),
           contexto_covar: this.contextoDe(item?.metadata_covars),
 
           // Métricas redondeadas
@@ -163,8 +164,8 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
       this.columns = [
         'decil',
         'especie_target',
-        'especie_covar',
         'contexto_target',
+        'especie_covar',
         'contexto_covar',
         'epsilon',
         'score',
@@ -178,12 +179,13 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
         const scoreRaw   = Number(item.score ?? 0);
 
         return {
+          // Cada contexto va junto al id de su lado (target / covariable).
           id_target: item.id_target,
+          contexto_target: this.contextoDe(item?.metadata_target),
           especie_target: this.especieDe(item?.metadata_target),
           id_covars: item.id_covars,
-          especie_covar: this.especieDe(item?.metadata_covars),
-          contexto_target: this.contextoDe(item?.metadata_target),
           contexto_covar: this.contextoDe(item?.metadata_covars),
+          especie_covar: this.especieDe(item?.metadata_covars),
           n: item.n,
           ni: item.ni,
           nj: item.nj,

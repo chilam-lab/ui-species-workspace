@@ -146,3 +146,12 @@ tr:hover {
   margin: 0 6px;
   font-weight: 500;
 }
+
+/* Contexto de colecciones propias: texto largo, se envuelve en vez de ensanchar la tabla. */
+td.col-contexto {
+  min-width: 240px;
+  max-width: 420px;
+  white-space: normal;
+  font-size: 0.8em;
+  line-height: 1.3;
+}

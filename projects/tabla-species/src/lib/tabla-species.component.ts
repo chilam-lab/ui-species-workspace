@@ -140,15 +140,10 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
           decil: this.decile ?? null,
 
           // Nombres de especies
-          especie_target: item?.metadata_target?.especie
-            ?? item?.metadata_target?.species
-            ?? '',
-          especie_covar: item?.metadata_covars?.especie
-            ?? item?.metadata_covars?.species
-            ?? item?.metadata_covars?.label
-            ?? item?.metadata_covars?.layer
-            ?? item?.metadata_covars?.descripcion
-            ?? '',
+          especie_target: this.especieDe(item?.metadata_target),
+          especie_covar: this.especieDe(item?.metadata_covars),
+          contexto_target: this.contextoDe(item?.metadata_target),
+          contexto_covar: this.contextoDe(item?.metadata_covars),
 
           // Métricas redondeadas
           epsilon: Number.isFinite(epsilonRaw)
@@ -169,6 +164,8 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
         'decil',
         'especie_target',
         'especie_covar',
+        'contexto_target',
+        'contexto_covar',
         'epsilon',
         'score',
         'pct_cobertura_total',
@@ -182,16 +179,11 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
 
         return {
           id_target: item.id_target,
-          especie_target: item?.metadata_target?.especie
-            ?? item?.metadata_target?.species
-            ?? '',
+          especie_target: this.especieDe(item?.metadata_target),
           id_covars: item.id_covars,
-          especie_covar: item?.metadata_covars?.especie
-            ?? item?.metadata_covars?.species
-            ?? item?.metadata_covars?.label
-            ?? item?.metadata_covars?.layer
-            ?? item?.metadata_covars?.descripcion
-            ?? '',
+          especie_covar: this.especieDe(item?.metadata_covars),
+          contexto_target: this.contextoDe(item?.metadata_target),
+          contexto_covar: this.contextoDe(item?.metadata_covars),
           n: item.n,
           ni: item.ni,
           nj: item.nj,
@@ -210,8 +202,39 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
       this.columns = this.data.length ? Object.keys(this.data[0]) : [];
     }
 
+    // Las columnas de contexto solo existen si alguna fila trae contexto
+    // (colecciones propias del usuario); si no, se ocultan.
+    for (const col of ['contexto_target', 'contexto_covar']) {
+      if (!this.data.some(r => r[col])) {
+        this.columns = this.columns.filter(c => c !== col);
+      }
+    }
+
     // Siempre resetea la página cuando cambian los datos
     this.currentPage = 1;
+  }
+
+  /** Nombre a mostrar del elemento (especie, capa, variable o colección propia). */
+  private especieDe(meta: any): string {
+    return meta?.especie
+      ?? meta?.species
+      ?? meta?.label
+      ?? meta?.layer
+      ?? meta?.descripcion
+      ?? meta?.nombre_datos
+      ?? '';
+  }
+
+  /** Contexto legible de una colección propia ("Mis datos"): nombre, número de
+   *  registros y los metadatos que el usuario subió. Vacío para el catálogo. */
+  private contextoDe(meta: any): string {
+    const ctx = meta?.contexto;
+    if (!ctx || typeof ctx !== 'object') return '';
+    const partes: string[] = [];
+    if (meta.nombre_datos) partes.push(`colección: ${meta.nombre_datos}`);
+    if (meta.registros != null) partes.push(`${meta.registros} registros`);
+    for (const [k, v] of Object.entries(ctx)) partes.push(`${k}: ${v}`);
+    return partes.join(' · ');
   }
 
 

@@ -49,7 +49,7 @@
     </thead>
     <tbody>
       <tr *ngFor="let row of paginatedData; trackBy: trackByRowIndex">
-        <td *ngFor="let col of columns">{{ row[col] }}</td>
+        <td *ngFor="let col of columns" [class.col-contexto]="col.startsWith('contexto')">{{ row[col] }}</td>
       </tr>
     </tbody>
   </table>

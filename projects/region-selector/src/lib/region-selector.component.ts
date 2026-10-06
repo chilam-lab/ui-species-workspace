@@ -16,6 +16,16 @@ export class RegionSelectorComponent implements OnInit {
   /** Fuentes habilitadas para este selector (null = todas) */
   @Input() enabledSourceIds: number[] | null = null;
 
+  /** Selección previamente elegida (ej. al volver a este paso desde otro en un
+   *  wizard): si se pasan, se usan como punto de partida en vez de "la primera
+   *  opción disponible" — así este componente no pisa silenciosamente una
+   *  configuración ya hecha con sus propios valores por defecto cada vez que
+   *  se vuelve a montar (bug real: sin esto, el ngOnInit siempre emite sus
+   *  defaults, incluso si el padre ya tenía otra selección guardada). */
+  @Input() initialSourceId: number | null = null;
+  @Input() initialRegionId: number | null = null;
+  @Input() initialGridId: number | null = null;
+
   /** NUEVO: emite la fuente de datos seleccionada (id_source) */
   @Output() sourceSelected = new EventEmitter<number>();
   /** Emites la región seleccionada (id) como antes */
@@ -45,7 +55,10 @@ export class RegionSelectorComponent implements OnInit {
         const list = this.filterSourcesByInput(srcs ?? []);
         this.sources.set(list);
 
-        const initial = list.length > 0 ? list[0] : { id_source: 1, nombre: 'SNIB' };
+        const preferred = this.initialSourceId != null
+          ? list.find(s => s.id_source === this.initialSourceId)
+          : undefined;
+        const initial = preferred ?? (list.length > 0 ? list[0] : { id_source: 1, nombre: 'SNIB' });
         this.selectedSourceId = initial.id_source;
         this.sourceSelected.emit(this.selectedSourceId);
 
@@ -73,15 +86,20 @@ export class RegionSelectorComponent implements OnInit {
     this.regionService.getRegionOptions(sourceId).subscribe((data: Region[]) => {
       this.regions.set(data);
 
-      // Selecciona región por default
-      const defaultRegion = data.find(r => r.id === this.selectedRegionId) ?? data[0];
+      // Selecciona región por default, prefiriendo initialRegionId si se pasó
+      const preferredRegionId = this.initialRegionId ?? this.selectedRegionId;
+      const defaultRegion = data.find(r => r.id === preferredRegionId) ?? data[0];
 
       if (defaultRegion) {
         this.selectedRegionId = defaultRegion.id;
         this.resolutions.set(defaultRegion.resolutions);
 
-        // Toma la primera resolución disponible
-        const first = defaultRegion.resolutions[0];
+        // Toma la resolución de initialGridId si se pasó y existe en esta región;
+        // si no, la primera disponible (comportamiento previo).
+        const preferredOption = this.initialGridId != null
+          ? defaultRegion.resolutions.find(r => r.grid_id === this.initialGridId)
+          : undefined;
+        const first = preferredOption ?? defaultRegion.resolutions[0];
         if (first) {
           this.selectedGridId = first.grid_id;
           this.selectedResolutionLabel = first.resolution;

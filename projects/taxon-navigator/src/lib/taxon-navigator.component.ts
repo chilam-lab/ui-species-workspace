@@ -1,5 +1,5 @@
 import {
-  Component, OnInit, signal, inject, OnDestroy, computed, Output, EventEmitter
+  Component, OnInit, signal, inject, OnDestroy, computed, Input, Output, EventEmitter
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TaxonNavigatorService, TaxonItem, TaxonomicLevel } from './services/taxon-navigator.service';
@@ -13,7 +13,7 @@ import { HierarchyStart, TaxonChannelService, isLayerSource } from 'taxon-shared
 type SelectedDict = { [levelIdx: number]: { [value: string]: string } };
 type ParentTrail = Array<{ level: string; value: string; label: string }>;
 
-type SourceState = {
+export type SourceState = {
   sourceId: number;
   sourceName: string;
   hierarchy: string[];          // niveles (dinámicos) en orden
@@ -29,6 +29,17 @@ type SourceState = {
   selectedByLevel: SelectedDict;
 
   startContext?: any;
+};
+
+/**
+ * Estado completo y serializable del navegador (selecciones de todas las
+ * fuentes + posición de navegación). El padre lo guarda vía (stateChange) y
+ * lo devuelve vía [initialState] cuando el componente se vuelve a montar
+ * (ej. al regresar a un paso de un wizard), para no perder lo ya elegido.
+ */
+export type TaxonNavigatorSnapshot = {
+  activeSourceId: number;
+  states: { [sourceId: number]: SourceState };
 };
 
 /**
@@ -63,6 +74,13 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
 
   /** ✅ Evento hacia el padre (COMPATIBLE): { levels: [{ level, values[] }, ...], source_id? } */
   @Output() selectionChange = new EventEmitter<TaxonSelectionPayload>();
+
+  /** Estado a restaurar al montarse (ver TaxonNavigatorSnapshot). Al restaurar
+   *  NO se emite selectionChange: el padre ya tiene esa selección guardada. */
+  @Input() initialState: TaxonNavigatorSnapshot | null = null;
+
+  /** Emite el estado completo cada vez que cambia la selección o la navegación. */
+  @Output() stateChange = new EventEmitter<TaxonNavigatorSnapshot>();
 
   // ======================
   // Estado por fuente
@@ -140,6 +158,12 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
     
     console.log('[taxon-navigator] ngOnInit mounted');
 
+    if (this.initialState?.states) {
+      const restored: TaxonNavigatorSnapshot = JSON.parse(JSON.stringify(this.initialState));
+      this.statesBySource.set(restored.states);
+      this.activeSourceId.set(restored.activeSourceId);
+    }
+
     this.channel.startFrom$
       .pipe(
         takeUntil(this.destroy$),
@@ -178,7 +202,15 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
   // ======================
   // ✅ Emisión al padre (COMPATIBLE): SOLO LA FUENTE ACTIVA
   // ======================
+  private emitState() {
+    this.stateChange.emit({
+      activeSourceId: this.activeSourceId(),
+      states: JSON.parse(JSON.stringify(this.statesBySource()))
+    });
+  }
+
   private emitSelection() {
+    this.emitState();
     const active = this.activeState();
     const map = this.statesBySource();
 
@@ -367,6 +399,7 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
         };
 
         this.statesBySource.set(map);
+        this.emitState();
 
       });
   }

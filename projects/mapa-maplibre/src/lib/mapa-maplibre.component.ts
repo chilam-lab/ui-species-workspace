@@ -191,7 +191,10 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
 
   ngOnChanges(ch: SimpleChanges): void {
     if (!this.mapLoaded) {
-      if ('run' in ch && !ch['run'].firstChange) this.pendingRun = true;
+      // run > 0 en el primer binding = el padre ya tenía un resultado previo
+      // (ej. al volver a un paso del wizard que se re-monta): se repinta en el
+      // 'load' en vez de mostrar el mapa vacío.
+      if ('run' in ch && (!ch['run'].firstChange || Number(ch['run'].currentValue) > 0)) this.pendingRun = true;
       if ('occValues' in ch && !ch['occValues'].firstChange) this.pendingOccUpdate = true;
       return;
     }

@@ -37,6 +37,16 @@ import { MatTabsModule } from '@angular/material/tabs';
 
 import { TaxonChannelService, isLayerSource } from 'taxon-shared';
 
+/**
+ * Lo que el usuario dejó elegido en el selector (pestaña de fuente, nivel y
+ * texto de la búsqueda). El padre lo guarda vía (stateChange) y lo devuelve
+ * vía [initialState] al volver a montarlo (ej. regresar a un paso del wizard).
+ */
+export type TaxonSelectorSnapshot = {
+  source_id: number;
+  level_variable_id?: number;
+  label: string;
+};
 
 @Component({
   selector: 'taxon-selector',
@@ -66,6 +76,15 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
   @Input() enabledSourceIds: number[] | null = null; // null = todas
   @Input() forceSourceId: number | null = null;      // opcional: forzar una sola
 
+  /** Selección a restaurar al montarse. Solo repinta el selector: NO vuelve a
+   *  anunciar el arranque a taxon-navigator (ese restaura su propio estado). */
+  @Input() initialState: TaxonSelectorSnapshot | null = null;
+
+  @Output() stateChange = new EventEmitter<TaxonSelectorSnapshot>();
+
+  /** initialState pendiente de aplicar cuando carguen los niveles de su fuente. */
+  private pendingRestore: TaxonSelectorSnapshot | null = null;
+
   // Catálogo completo de fuentes tal como llegó de /mdf/sources, antes de filtrar
   private rawSources: TaxonSource[] = [];
   private sourcesLoaded = false;
@@ -90,6 +109,8 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
   selectedSourceName = signal<string>(''); // ej. "WorldClim"
 
   ngOnInit(): void {
+    this.pendingRestore = this.initialState ? { ...this.initialState } : null;
+
     // 1) Cargar fuentes
     this.service.getSources().subscribe({
       next: (srcs) => {
@@ -169,7 +190,11 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
     const wanted = this.forceSourceId != null
       ? list.find(s => s.id_source === Number(this.forceSourceId))
       : null;
-    const initial = wanted ?? list[0];
+    const restored = this.pendingRestore
+      ? list.find(s => s.id_source === Number(this.pendingRestore!.source_id))
+      : null;
+    if (this.pendingRestore && !restored) this.pendingRestore = null; // ya no está habilitada
+    const initial = wanted ?? restored ?? list[0];
 
     if (initial.id_source === this.selectedSourceId() && this.taxonomicLevels().length > 0) {
       return; // ya está en la fuente correcta, no recargar innecesariamente
@@ -227,6 +252,7 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
 
     this.resetState();
     this.loadLevelsForSource(newSourceId);
+    this.stateChange.emit({ source_id: newSourceId, label: '' });
   }
 
   private loadLevelsForSource(sourceId: number) {
@@ -235,6 +261,14 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
         const list = levels ?? [];
         this.taxonomicLevels.set(list);
         this.selectedLevel = list.length > 0 ? list[0] : undefined;
+
+        const restore = this.pendingRestore;
+        if (restore && Number(restore.source_id) === sourceId) {
+          this.pendingRestore = null;
+          const lvl = list.find(l => l.variable_id === restore.level_variable_id);
+          if (lvl) this.selectedLevel = lvl;
+          this.searchControl.setValue(restore.label ?? '', { emitEvent: false });
+        }
       },
       error: (err) => {
         console.error(`Error cargando niveles (source_id=${sourceId}):`, err);
@@ -262,6 +296,7 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
       this.suggestions.set([]);
       this.searchControl.setValue('', { emitEvent: false });
       this.autoTrigger?.closePanel();
+      this.stateChange.emit({ source_id: this.selectedSourceId(), level_variable_id: level.variable_id, label: '' });
     }
   }
 
@@ -363,7 +398,9 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
   }
 
   // Para que el input muestre texto cuando seleccionas un objeto
-  displayWith = (item: Species) => this.getOptionLabel(item);
+  // Tras elegir (o al restaurar initialState) el control guarda el texto ya
+  // armado, no el objeto Species: mostrarlo tal cual en vez de dejarlo vacío.
+  displayWith = (item: Species | string) => typeof item === 'string' ? item : this.getOptionLabel(item);
 
   // ===== Helpers para armar level/value/label del arranque =====
   private getCurrentLevelKey(): string | null {
@@ -484,6 +521,11 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
       || String(value);
 
     this.searchControl.setValue(safeLabel, { emitEvent: false });
+    this.stateChange.emit({
+      source_id: this.selectedSourceId(),
+      level_variable_id: this.selectedLevel?.variable_id,
+      label: safeLabel
+    });
 
     // level_id viene como arreglo (SNIB/GBIF) y WorldClim también lo trae en tu ejemplo
     this.selectedLevelIds = (species as any).level_id ?? [];

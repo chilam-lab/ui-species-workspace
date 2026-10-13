@@ -37,6 +37,13 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
   /** Ocurrencias (opcional) */
   @Input() occValues: Array<{ cell_id: number | string; occ: number }> = [];
 
+  /** Selección de celdas: con cellSelectMode=true, un clic sobre una celda con
+   *  ocurrencias emite cellClick (el padre decide qué hacer, ej. excluirla). */
+  @Input() cellSelectMode = false;
+  /** Celdas marcadas como excluidas: se pintan en gris sobre la capa de ocurrencias. */
+  @Input() excludedCells: Array<number | string> = [];
+  @Output() cellClick = new EventEmitter<{ cell_id: number | string; occ: number | null }>();
+
   /** Leyenda (opcional): si las pasas, se usan; si no, se autogeneran tras cada análisis */
   @Input() legendBreaks: number[] = [];
   @Input() legendColors: string[] = [];
@@ -66,6 +73,7 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
   /** Estado */
   private currentGridIdLoaded: number | null = null;
   private lastOccIds = new Set<number | string>();
+  private lastExcludedIds = new Set<number | string>();
   private lastScoreIds = new Set<number | string>();
 
   /** Si un cambio de 'run'/'occValues' llega antes de que el mapa termine de
@@ -142,6 +150,7 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
 
       this.map.on('load', () => {
         this.mapLoaded = true;
+        this.registrarSeleccionDeCeldas();
         const rectAtLoad = this.mapEl?.nativeElement?.getBoundingClientRect();
         console.log(`[Maplibre:${this.mapId}] evento 'load' — contenedor: ${rectAtLoad?.width}x${rectAtLoad?.height}px`);
         requestAnimationFrame(() => this.map.resize());
@@ -207,6 +216,14 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
       this.applyOccWhenSourceReady();
     }
 
+    if ('excludedCells' in ch && !ch['excludedCells'].firstChange) {
+      this.aplicarExcluidas();
+    }
+
+    if ('cellSelectMode' in ch && !this.cellSelectMode && this.map) {
+      this.map.getCanvas().style.cursor = '';
+    }
+
     if (('legendBreaks' in ch || 'legendColors' in ch) && !(ch['legendBreaks']?.firstChange && ch['legendColors']?.firstChange)) {
       this.rebuildLegendFromInputs();
     }
@@ -237,6 +254,7 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
     if (this.map.getSource(this.baseSourceId)) this.map.removeSource(this.baseSourceId);
     if (this.showLayerControl) this.layerControl.reset([]);
     this.lastOccIds.clear();
+    this.lastExcludedIds.clear();
     this.lastScoreIds.clear();
     if (this.map.getLayer(this.nicheScoreLayerId)) this.map.removeLayer(this.nicheScoreLayerId);
   }
@@ -270,22 +288,11 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
 
       this.map.addSource(this.baseSourceId, { type: 'geojson', data: geojson, promoteId: this.promoteIdKey as any });
 
-      const occExpr = ['coalesce', ['feature-state', 'occ'], -9999] as any;
       this.map.addLayer({
         id: this.baseLayerId,
         type: 'fill',
         source: this.baseSourceId,
-        paint: {
-          'fill-color': [
-            'case',
-            ['==', occExpr, -9999], 'rgba(0,0,0,0)',
-            ['interpolate', ['linear'], occExpr,
-              0, '#ffff00', 1, '#ffd54f', 3, '#ff9800', 5, '#f44336', 8, '#d32f2f'
-            ]
-          ],
-          'fill-opacity': ['case', ['==', occExpr, -9999], 0.0, 1.0],
-          'fill-outline-color': 'rgba(0,0,0,0.15)'
-        }
+        paint: this.occPaint()
       });
 
       if (this.showLayerControl && this.controlBaseLayer) {
@@ -295,6 +302,65 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
       this.currentGridIdLoaded = gid;
       this.fitToGeojsonBounds(geojson);
       this.applyOccWhenSourceReady();
+    });
+  }
+
+  /** Paint de la capa de ocurrencias: transparente sin occ, gris si la celda
+   *  está excluida, rampa amarilla→roja según occ. */
+  private occPaint(): any {
+    const occExpr = ['coalesce', ['feature-state', 'occ'], -9999] as any;
+    const excluded = ['boolean', ['feature-state', 'excluded'], false] as any;
+    return {
+      'fill-color': [
+        'case',
+        ['==', occExpr, -9999], 'rgba(0,0,0,0)',
+        excluded, '#9e9e9e',
+        ['interpolate', ['linear'], occExpr,
+          0, '#ffff00', 1, '#ffd54f', 3, '#ff9800', 5, '#f44336', 8, '#d32f2f'
+        ]
+      ],
+      'fill-opacity': ['case', ['==', occExpr, -9999], 0.0, excluded, 0.85, 1.0],
+      'fill-outline-color': ['case', excluded, '#424242', 'rgba(0,0,0,0.15)']
+    };
+  }
+
+  /** Marca en el mapa las celdas de excludedCells (feature-state 'excluded'). */
+  private aplicarExcluidas() {
+    if (!this.map?.getSource(this.baseSourceId)) return;
+    for (const id of this.lastExcludedIds) {
+      this.map.removeFeatureState({ source: this.baseSourceId, id }, 'excluded');
+    }
+    this.lastExcludedIds.clear();
+    for (const raw of (this.excludedCells ?? [])) {
+      const id = this.coerceIdType(raw);
+      if (id == null) continue;
+      this.map.setFeatureState({ source: this.baseSourceId, id }, { excluded: true } as any);
+      this.lastExcludedIds.add(id);
+    }
+  }
+
+  /** Clic/hover sobre celdas con ocurrencias cuando cellSelectMode está activo.
+   *  Se registra una sola vez sobre el mapa (no por capa) porque la capa base se
+   *  quita y se vuelve a crear al cambiar de malla. */
+  private registrarSeleccionDeCeldas() {
+    const hit = (point: maplibregl.PointLike) => {
+      if (!this.cellSelectMode || !this.map.getLayer(this.baseLayerId)) return null;
+      const feats = this.map.queryRenderedFeatures(point, { layers: [this.baseLayerId] });
+      const f = feats.find((ft) => {
+        const occ = (ft.state as any)?.occ;
+        return occ !== undefined && occ !== null && occ !== -9999;
+      });
+      return f ?? null;
+    };
+    this.map.on('click', (e) => {
+      const f = hit(e.point);
+      if (!f) return;
+      const id = (f.id ?? (f.properties as any)?.[this.promoteIdKey]) as number | string;
+      const occ = Number((f.state as any)?.occ);
+      this.ngZone.run(() => this.cellClick.emit({ cell_id: id, occ: Number.isNaN(occ) ? null : occ }));
+    });
+    this.map.on('mousemove', (e) => {
+      this.map.getCanvas().style.cursor = hit(e.point) ? 'pointer' : '';
     });
   }
 
@@ -347,6 +413,7 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
         applied++;
       }
       console.log(`[Maplibre:${this.mapId}] Estados aplicados desde Input (occ): ${applied}`);
+      this.aplicarExcluidas();
       return;
     }
 
@@ -446,6 +513,7 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
     if (this.map.getSource(this.baseSourceId)) this.map.removeSource(this.baseSourceId);
     if (this.showLayerControl) this.layerControl.reset([]);
     this.lastOccIds.clear();
+    this.lastExcludedIds.clear();
     this.lastScoreIds.clear();
 
     this.geojsonService.getGeojson(grid_id).subscribe((data) => {
@@ -455,23 +523,12 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
 
       this.map.addSource(this.baseSourceId, { type: 'geojson', data: geojson, promoteId: this.promoteIdKey as any });
 
-      const occExpr = ['coalesce', ['feature-state', 'occ'], -9999] as any;
 
       this.map.addLayer({
         id: this.baseLayerId,
         type: 'fill',
         source: this.baseSourceId,
-        paint: {
-          'fill-color': [
-            'case',
-            ['==', occExpr, -9999], 'rgba(0,0,0,0)',
-            ['interpolate', ['linear'], occExpr,
-              0, '#ffff00', 1, '#ffd54f', 3, '#ff9800', 5, '#f44336', 8, '#d32f2f'
-            ]
-          ],
-          'fill-opacity': ['case', ['==', occExpr, -9999], 0.0, 1.0],
-          'fill-outline-color': 'rgba(0,0,0,0.15)'
-        }
+        paint: this.occPaint()
       });
 
       if (this.showLayerControl && this.controlBaseLayer) {

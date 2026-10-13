@@ -51,7 +51,26 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
   // reservado por si quieres mostrar estado
   private hasData = false;
 
-  constructor(private api: HistogramChartService, private ngZone: NgZone) {}
+  constructor(private api: HistogramChartService, private ngZone: NgZone) {
+    // Al destruir el componente (p. ej. el *ngIf de Resultados al correr otro
+    // análisis) hay que destruir la gráfica: si no, Chart.js conserva sus
+    // listeners de resize sobre un canvas ya fuera del DOM y truena con
+    // "Cannot read properties of null (reading 'ownerDocument')".
+    this.destroyRef.onDestroy(() => {
+      this.destroyed = true;
+      this.destroyChart();
+    });
+  }
+
+  private destroyed = false;
+
+  private destroyChart() {
+    if (!this.chart) return;
+    // 🔒 destroy() también debe correr fuera de la zona — ver comentario en draw().
+    const chart = this.chart;
+    this.chart = undefined;
+    this.ngZone.runOutsideAngular(() => chart.destroy());
+  }
 
   // ================== Ciclo de vida ==================
 
@@ -213,18 +232,15 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
   ) {
     console.log('[Histogram] draw() labels=', labels, 'values=', values);
 
-    // Destruye chart previo si existe
-    if (this.chart) {
-      // 🔒 destroy() también debe correr fuera de la zona — ver comentario
-      // más abajo sobre por qué TODO el ciclo de vida de Chart.js se aísla.
-      this.ngZone.runOutsideAngular(() => this.chart!.destroy());
-      this.chart = undefined;
-    }
+    // Destruye chart previo si existe (fuera de la zona — ver comentario más
+    // abajo sobre por qué TODO el ciclo de vida de Chart.js se aísla).
+    this.destroyChart();
 
-    // Aseguramos que el canvas exista y tenga contexto 2D
+    // Aseguramos que el canvas exista, siga en el DOM y tenga contexto 2D.
+    // Un canvas desconectado (componente ya destruido o aún no insertado) hace
+    // que Chart.js truene al medir su contenedor (ownerDocument null).
     const canvas = this.canvasRef?.nativeElement;
-    if (!canvas) {
-      console.error('[Histogram] canvasRef no disponible');
+    if (this.destroyed || !canvas || !canvas.isConnected) {
       return;
     }
     const ctx = canvas.getContext('2d');

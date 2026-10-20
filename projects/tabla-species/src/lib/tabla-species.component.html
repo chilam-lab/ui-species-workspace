@@ -4,7 +4,7 @@
   <!-- Overlay de LOADING -->
   <div class="overlay" *ngIf="loading">
     <div class="spinner"></div>
-    <div class="msg">Cargando tabla…</div>
+    <div class="msg">{{ 'tabla.loading' | t }}</div>
   </div>
 
   <!-- Controles superiores: búsqueda + tamaño de página -->
@@ -14,24 +14,24 @@
       type="text"
       [(ngModel)]="searchTerm"
       (ngModelChange)="onSearchChange()"
-      placeholder="Buscador"
+      [placeholder]="'tabla.search' | t"
       class="input-busqueda"
       [disabled]="loading"
     />
 
     <!-- Exportación (como la versión estable): todas las filas filtradas -->
     <div class="export-buttons">
-      <button type="button" (click)="copyToClipboard()" [disabled]="loading || !filteredData.length" title="Copiar la tabla al portapapeles">Copiar</button>
-      <button type="button" (click)="exportCsv()" [disabled]="loading || !filteredData.length" title="Descargar en CSV">CSV</button>
-      <button type="button" (click)="exportExcel()" [disabled]="loading || !filteredData.length" title="Descargar en Excel (.xlsx)">Excel</button>
-      <button type="button" (click)="printTable()" [disabled]="loading || !filteredData.length" title="Imprimir la tabla">Imprimir</button>
+      <button type="button" (click)="copyToClipboard()" [disabled]="loading || !filteredData.length" [title]="'tabla.copy.title' | t">{{ 'tabla.copy' | t }}</button>
+      <button type="button" (click)="exportCsv()" [disabled]="loading || !filteredData.length" [title]="'tabla.csv.title' | t">CSV</button>
+      <button type="button" (click)="exportExcel()" [disabled]="loading || !filteredData.length" [title]="'tabla.excel.title' | t">Excel</button>
+      <button type="button" (click)="printTable()" [disabled]="loading || !filteredData.length" [title]="'tabla.print.title' | t">{{ 'tabla.print' | t }}</button>
       <span class="export-msg" *ngIf="exportMsg" role="status">{{ exportMsg }}</span>
     </div>
 
     <!-- Selector de registros por página -->
     <div class="page-size-control">
       <label>
-        Registros por página:
+        {{ 'tabla.pageSize' | t }}
         <select
           [(ngModel)]="pageSize"
           (ngModelChange)="onPageSizeChange($event)"
@@ -54,7 +54,7 @@
                   (click)="toggleInfo(col, $event)"
                   (mouseenter)="showInfo(col, $event)" (mouseleave)="hideInfo()"
                   (focus)="showInfo(col, $event)" (blur)="hideInfo()"
-                  [attr.aria-label]="'Qué significa ' + info.label"
+                  [attr.aria-label]="'tabla.infoAria' | t: { label: info.label }"
                   [attr.aria-expanded]="infoPop?.col === col">ⓘ</button>
           <span *ngIf="sortColumn === col">
             {{ sortDirection === 'asc' ? '▲' : '▼' }}
@@ -71,7 +71,7 @@
 
   <!-- Mensaje cuando no hay resultados -->
   <div *ngIf="!loading && !filteredData.length" class="mensaje-vacio">
-    No hay resultados para mostrar.
+    {{ 'tabla.empty' | t }}
   </div>
 
   <!-- Paginador inferior -->
@@ -80,8 +80,7 @@
     *ngIf="!loading && filteredData.length"
   >
     <div class="summary">
-      Mostrando {{ pageStartIndex }}–{{ pageEndIndex }}
-      de {{ filteredData.length }} registros
+      {{ 'tabla.showing' | t: { from: pageStartIndex, to: pageEndIndex, total: filteredData.length } }}
     </div>
 
     <div class="buttons">
@@ -89,18 +88,18 @@
         type="button"
         (click)="changePage(-1)"
         [disabled]="currentPage === 1">
-        Anterior
+        {{ 'tabla.prev' | t }}
       </button>
 
       <span class="page-info">
-        Página {{ currentPage }} de {{ totalPages }}
+        {{ 'tabla.page' | t: { page: currentPage, pages: totalPages } }}
       </span>
 
       <button
         type="button"
         (click)="changePage(1)"
         [disabled]="currentPage === totalPages">
-        Siguiente
+        {{ 'tabla.next' | t }}
       </button>
     </div>
   </div>

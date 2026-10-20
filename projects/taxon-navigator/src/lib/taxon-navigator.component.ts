@@ -1,6 +1,8 @@
 import {
   Component, OnInit, signal, inject, OnDestroy, computed, Input, Output, EventEmitter
 } from '@angular/core';
+import { I18nService, TranslatePipe, LevelPipe } from 'taxon-shared';
+import { NAVIGATOR_I18N } from './taxon-navigator.i18n';
 import { CommonModule } from '@angular/common';
 import { TaxonNavigatorService, TaxonItem, TaxonomicLevel } from './services/taxon-navigator.service';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -61,7 +63,7 @@ type TaxonSelectionPayload = {
 @Component({
   selector: 'taxon-navigator',
   standalone: true,
-  imports: [CommonModule, MatCheckboxModule, MatButtonModule, MatListModule, MatIconModule],
+  imports: [CommonModule, MatCheckboxModule, MatButtonModule, MatListModule, MatIconModule, TranslatePipe, LevelPipe],
   templateUrl: './taxon-navigator.component.html',
   styleUrls: ['./taxon-navigator.component.scss'],
   providers: [TaxonNavigatorService]
@@ -70,6 +72,8 @@ export class TaxonNavigatorComponent implements OnInit, OnDestroy {
 
   private service = inject(TaxonNavigatorService);
   private channel = inject(TaxonChannelService);
+  private readonly i18n = inject(I18nService);
+  private readonly _i18nReg = this.i18n.register(NAVIGATOR_I18N);
   private destroy$ = new Subject<void>();
 
   /** ✅ Evento hacia el padre (COMPATIBLE): { levels: [{ level, values[] }, ...], source_id? } */

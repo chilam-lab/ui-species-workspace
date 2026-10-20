@@ -1,11 +1,13 @@
-import { Component, EventEmitter, Output, Input, OnInit, signal } from '@angular/core';
+import { Component, EventEmitter, Output, Input, OnInit, signal, inject } from '@angular/core';
+import { I18nService, TranslatePipe } from 'taxon-shared';
+import { REGION_I18N } from './region-selector.i18n';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RegionSelectorService, Region, ResolutionOption, DataSource } from './services/region-selector.service';
 
 @Component({
   selector: 'app-region-selector',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './region-selector.component.html',
   styleUrls: ['./region-selector.component.scss'],
   providers: [RegionSelectorService],
@@ -47,7 +49,9 @@ export class RegionSelectorComponent implements OnInit {
   /** Para mantener compatibilidad con resolutionSelected (string) */
   private selectedResolutionLabel: string = '';
 
-  constructor(private regionService: RegionSelectorService) {}
+  constructor(private regionService: RegionSelectorService) {
+    inject(I18nService).register(REGION_I18N);
+  }
 
   ngOnInit() {
     this.regionService.getSources().subscribe({

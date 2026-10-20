@@ -1,7 +1,9 @@
-import { Component, HostListener, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, HostListener, Input, OnInit, OnChanges, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TablaSpeciesService } from './services/tabla-species.service';
+import { I18nService, TranslatePipe } from 'taxon-shared';
+import { TABLA_SPECIES_I18N } from './tabla-species.i18n';
 import { ExportCell, csvBlob, downloadBlob, printTable, toDelimited, xlsxBlob } from './table-export';
 
 @Component({
@@ -9,7 +11,7 @@ import { ExportCell, csvBlob, downloadBlob, printTable, toDelimited, xlsxBlob } 
   standalone: true,
   templateUrl: './tabla-species.component.html',
   styleUrls: ['./tabla-species.component.css'],
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   providers: [TablaSpeciesService]
 })
 export class TablaSpeciesComponent implements OnInit, OnChanges {
@@ -54,7 +56,9 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
   pageSize: number = 25;
   currentPage: number = 1;
 
-  constructor(private tablaService: TablaSpeciesService) {}
+  constructor(private tablaService: TablaSpeciesService) {
+    inject(I18nService).register(TABLA_SPECIES_I18N);
+  }
 
   ngOnInit() {
     console.log('[TABLA LOCAL] Soy el componente local que editaste');
@@ -208,7 +212,9 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
   }
 
   private sheetTitle(): string {
-    return this.decileMode && this.decile != null ? `${this.exportTitle} - decil ${this.decile}` : this.exportTitle;
+    return this.decileMode && this.decile != null
+      ? `${this.exportTitle} - ${this.i18n.t('tabla.decileSuffix', { d: this.decile })}`
+      : this.exportTitle;
   }
 
   exportCsv() {
@@ -226,16 +232,16 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
     const tsv = toDelimited(headers, rows, '\t');
     try {
       await navigator.clipboard.writeText(tsv);
-      this.flash(`Copiadas ${rows.length} filas al portapapeles`);
+      this.flash(this.i18n.t('tabla.copied', { n: rows.length }));
     } catch {
-      this.flash('No se pudo copiar (el navegador no dio permiso al portapapeles)');
+      this.flash(this.i18n.t('tabla.copyFailed'));
     }
   }
 
   printTable() {
     const { headers, rows } = this.exportMatrix();
     if (!printTable(this.sheetTitle(), headers, rows)) {
-      this.flash('El navegador bloqueó la ventana de impresión; permite ventanas emergentes para este sitio');
+      this.flash(this.i18n.t('tabla.printBlocked'));
     }
   }
 
@@ -244,23 +250,20 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
     return Number.isFinite(n) ? Number(n.toFixed(2)) : null;
   }
 
+  private readonly i18n = inject(I18nService);
+
   /** Encabezado legible y descripción (botón ⓘ) de cada columna, con los
-   *  textos de la versión estable. */
-  readonly columnInfo: Record<string, { label: string; help: string }> = {
-    decil: { label: 'Decil', help: 'Decil donde existe presencia de las variables explicatorias. Las celdas del mapa se ordenan por su score y se dividen en 10 grupos; el decil 10 son las de mayor score.' },
-    especie_target: { label: 'Target', help: 'Especie o elemento objetivo del análisis.' },
-    contexto_target: { label: 'Contexto del target', help: 'Datos de la colección propia usada como target (Mis datos).' },
-    especie_covar: { label: 'Variable', help: 'Variable explicativa: especie, rango de una variable climática o de elevación, o colección propia.' },
-    contexto_covar: { label: 'Contexto de la variable', help: 'Datos de la colección propia usada como variable (Mis datos).' },
-    n: { label: 'n', help: 'Es el número de celdas consideradas en el análisis (las celdas de la región, sin las que se hayan borrado).' },
-    ni: { label: 'ni', help: 'Es el número de celdas con al menos una ocurrencia de la variable objetivo.' },
-    nj: { label: 'nj', help: 'Es el número de celdas con al menos una ocurrencia de la variable explicatoria.' },
-    nij: { label: 'nij', help: 'Es el número de celdas donde ocurre una interacción de la variable explicatoria con la variable objetivo.' },
-    epsilon: { label: 'Epsilon', help: 'Épsilon cuantifica si hay evidencia o no de correlación espacial entre la variable explicativa y la variable objetivo. Es una prueba de hipótesis donde la hipótesis nula es que la variable objetivo se distribuye independientemente de la variable explicativa. Mide, en unidades de desviación estándar, cuánto y en qué dirección cambia la frecuencia de presencias de la variable objetivo cuando sólo se consideran áreas donde la variable explicativa está presente.' },
-    score: { label: 'Score', help: 'Compara la proporción de la variable explicativa en las celdas de la variable objetivo contra su proporción en el resto de las celdas. Si es mayor dentro (score positivo), la variable favorece la presencia del objetivo, y viceversa. Se aplica logaritmo natural (alpha = 1/n).' },
-    cobertura: { label: 'Cobertura de variable (%)', help: 'Describe cuánto abarca el decil de la distribución total de la variable. Por ejemplo, si la variable se distribuye sólo dentro del decil, la cobertura de variable es 100%.' },
-    ocupacion: { label: 'Ocupación de decil (%)', help: 'Describe cuánto abarca la variable de la distribución del decil. Por ejemplo, si la variable ocupa 10 de 100 celdas del decil, la ocupación es 10%.' },
-  };
+   *  textos de la versión estable, en el idioma vigente. */
+  private static readonly COLUMNS = ['decil', 'especie_target', 'contexto_target', 'especie_covar', 'contexto_covar',
+    'n', 'ni', 'nj', 'nij', 'epsilon', 'score', 'cobertura', 'ocupacion'];
+
+  get columnInfo(): Record<string, { label: string; help: string }> {
+    const out: Record<string, { label: string; help: string }> = {};
+    for (const c of TablaSpeciesComponent.COLUMNS) {
+      out[c] = { label: this.i18n.t(`tabla.col.${c}`), help: this.i18n.t(`tabla.help.${c}`) };
+    }
+    return out;
+  }
 
   /** Popover de ayuda de columna. Posición FIJA en pantalla, calculada desde el
    *  botón ⓘ y recortada al viewport: dentro de la celda (position absolute)

@@ -1,7 +1,9 @@
-import { Component, AfterViewInit, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, ElementRef, EventEmitter, Output, NgZone } from '@angular/core';
+import { Component, AfterViewInit, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, ElementRef, EventEmitter, Output, NgZone, inject } from '@angular/core';
 import { ScoreColorMode, ColorScale, scoreScale, probabilityScale } from './score-color-scales';
 
 import { CommonModule } from '@angular/common';
+import { I18nService, TranslatePipe } from 'taxon-shared';
+import { MAPA_I18N } from './mapa-maplibre.i18n';
 import { FormsModule } from '@angular/forms';
 import maplibregl from 'maplibre-gl';
 import {
@@ -17,7 +19,7 @@ type LegendItem = { color: string; label: string };
 @Component({
   selector: 'app-mapa-maplibre',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './mapa-maplibre.component.html',
   styleUrls: ['./mapa-maplibre.component.scss'],
   providers: [MapaMaplibreService]
@@ -87,7 +89,7 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
    *  para recolorear al cambiar scoreColorMode. */
   private lastVizValues: number[] = [];
   private probMode = false;
-  public legendTitle = 'Score por celda';
+  public legendTitleKey = 'map.legend.score';
 
   /** Si un cambio de 'run'/'occValues' llega antes de que el mapa termine de
    *  cargar (evento 'load' de maplibre), se guarda aquí y se re-ejecuta en
@@ -103,7 +105,9 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
   /** Leyenda renderizable */
   public legendItems: LegendItem[] = [];
 
-  constructor(private geojsonService: MapaMaplibreService, private ngZone: NgZone) {}
+  constructor(private geojsonService: MapaMaplibreService, private ngZone: NgZone) {
+    inject(I18nService).register(MAPA_I18N);
+  }
 
   ngAfterViewInit(): void {
     const rect = this.mapEl?.nativeElement?.getBoundingClientRect();
@@ -691,7 +695,7 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
       'case', ['==', scoreExpr, -9999], 0.0, 1.0
     ]);
     this.ngZone.run(() => {
-      this.legendTitle = this.probMode ? 'Probabilidad' : 'Score por celda';
+      this.legendTitleKey = this.probMode ? 'map.legend.prob' : 'map.legend.score';
       this.buildLegendFromRanges(scale.edges, scale.colors, this.probMode);
     });
   }

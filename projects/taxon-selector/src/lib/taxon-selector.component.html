@@ -10,17 +10,17 @@
 <div class="selector-row">
   <!-- Nivel -->
   <mat-form-field appearance="fill" class="field">
-    <mat-label>Nivel</mat-label>
+    <mat-label>{{ 'sel.level' | t }}</mat-label>
     <mat-select [ngModel]="selectedLevel?.variable_id" (ngModelChange)="onLevelChange($event)">
       <mat-option *ngFor="let level of taxonomicLevels()" [value]="level.variable_id">
-        {{ level.variable }}
+        {{ level.variable | level }}
       </mat-option>
     </mat-select>
   </mat-form-field>
 
   <!-- Búsqueda -->
   <mat-form-field appearance="fill" class="field grow">
-    <mat-label>Búsqueda sobre Nivel</mat-label>
+    <mat-label>{{ 'sel.search' | t }}</mat-label>
 
     <input
       matInput
@@ -45,7 +45,7 @@
         </div>
       </mat-option>
 
-      <mat-option *ngIf="loading()" disabled>Cargando…</mat-option>
+      <mat-option *ngIf="loading()" disabled>{{ 'sel.loading' | t }}</mat-option>
     </mat-autocomplete>
   </mat-form-field>
 </div>

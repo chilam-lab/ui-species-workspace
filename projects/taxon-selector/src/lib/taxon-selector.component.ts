@@ -10,6 +10,8 @@ import {
   EventEmitter,
   Input
 } from '@angular/core';
+import { I18nService, TranslatePipe, LevelPipe } from 'taxon-shared';
+import { SELECTOR_I18N } from './taxon-selector.i18n';
 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -59,7 +61,9 @@ export type TaxonSelectorSnapshot = {
     MatFormFieldModule,
     MatSelectModule,
     MatInputModule,
-    MatAutocompleteModule
+    MatAutocompleteModule,
+    TranslatePipe,
+    LevelPipe
   ],
   templateUrl: './taxon-selector.component.html',
   styleUrls: ['./taxon-selector.component.scss'],
@@ -68,6 +72,8 @@ export type TaxonSelectorSnapshot = {
 export class TaxonSelectorComponent implements OnInit, OnChanges {
   private service = inject(TaxonSelectorService);
   private channel = inject(TaxonChannelService);
+  private readonly i18n = inject(I18nService);
+  private readonly _i18nReg = this.i18n.register(SELECTOR_I18N);
 
   @Output() speciesSelected = new EventEmitter<Species>();
 
@@ -331,8 +337,8 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
   searchPlaceholder(): string {
     const min = this.minSearchLength();
     return min <= 1
-      ? 'Escribe un percentil (1-10) o un valor de rango...'
-      : `Escribe al menos ${min} caracteres...`;
+      ? this.i18n.t('sel.percentile')
+      : this.i18n.t('sel.minChars', { n: min });
   }
 
   private formatRangeTag(tag: string): string {

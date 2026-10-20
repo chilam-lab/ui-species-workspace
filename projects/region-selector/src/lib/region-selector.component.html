@@ -1,6 +1,6 @@
 <div class="selector-container">
   <div class="field" *ngIf="sources().length > 1">
-    <label for="source">Fuente datos</label>
+    <label for="source">{{ 'reg.source' | t }}</label>
     <select id="source" [(ngModel)]="selectedSourceId" (change)="onSourceChange()">
       <option *ngFor="let s of sources()" [value]="s.id_source">
         {{ s.nombre }}
@@ -9,7 +9,7 @@
   </div>
 
   <div class="field">
-    <label for="region">Región</label>
+    <label for="region">{{ 'reg.region' | t }}</label>
     <select id="region" [(ngModel)]="selectedRegionId" (change)="onRegionChange()">
       <option *ngFor="let region of regions()" [value]="region.id">
         {{ region.name }}
@@ -18,7 +18,7 @@
   </div>
 
   <div class="field">
-    <label for="resolution">Resolución</label>
+    <label for="resolution">{{ 'reg.resolution' | t }}</label>
     <!-- El value ahora es el grid_id; mostramos la etiqueta resolution -->
     <select id="resolution" [(ngModel)]="selectedGridId" (change)="onResolutionChange()">
       <option *ngFor="let res of resolutions()" [value]="res.grid_id">

@@ -6,6 +6,8 @@ import {
 import Chart from 'chart.js/auto';
 import type { ChartConfiguration } from 'chart.js';
 import { CommonModule } from '@angular/common';
+import { I18nService, TranslatePipe } from 'taxon-shared';
+import { HISTOGRAM_I18N } from './histogram-chart.i18n';
 
 import {
   HistogramEndpoint,
@@ -18,7 +20,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 @Component({
   selector: 'ui-histogram-chart',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   templateUrl: './histogram-chart.component.html',
   styleUrls: ['./histogram-chart.component.scss']
 })
@@ -91,6 +93,7 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
   private hasData = false;
 
   constructor(private api: HistogramChartService, private ngZone: NgZone) {
+    inject(I18nService).register(HISTOGRAM_I18N);
     // Al destruir el componente (p. ej. el *ngIf de Resultados al correr otro
     // análisis) hay que destruir la gráfica: si no, Chart.js conserva sus
     // listeners de resize sobre un canvas ya fuera del DOM y truena con

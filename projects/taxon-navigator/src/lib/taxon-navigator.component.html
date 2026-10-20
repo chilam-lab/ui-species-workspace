@@ -1,6 +1,6 @@
 <!-- Mensaje inicial -->
 <div *ngIf="!currentChildLevel && !activeParentInfo">
-  Selecciona un inicio desde el selector taxonómico.
+  {{ 'nav.start' | t }}
 </div>
 
 <!-- Layout 2 columnas: izquierda navegación, derecha seleccionados -->
@@ -11,11 +11,11 @@
 
     <!-- Barra superior fuera del scroll -->
     <div class="navigator-controls">
-      <h3>Selecciona {{ currentChildLevel || activeParentInfo?.level }}</h3>
+      <h3>{{ 'nav.select' | t: { level: ((currentChildLevel || activeParentInfo?.level) | level) } }}</h3>
       <button mat-stroked-button color="primary"
               (click)="goBack()" [disabled]="pathStack().length <= 1">
         <mat-icon>arrow_back</mat-icon>
-        Regresar
+        {{ 'nav.back' | t }}
       </button>
     </div>
 
@@ -30,7 +30,7 @@
             (change)="toggleParentSelection()">
             <div class="item-text">
               <span class="parent-start-label">{{ parent.label }}</span>
-              <span class="item-sub">{{ parent.level }}</span>
+              <span class="item-sub">{{ parent.level | level }}</span>
             </div>
           </mat-checkbox>
         </div>
@@ -66,7 +66,7 @@
         <button mat-icon-button
                 *ngIf="hasNextLevel"
                 (click)="goForward(n); $event.stopPropagation()"
-                aria-label="Ir al siguiente nivel">
+                [attr.aria-label]="'nav.next' | t">
           <mat-icon>chevron_right</mat-icon>
         </button>
       </div>
@@ -74,7 +74,7 @@
       <!-- Solo aplica cuando SÍ hay un nivel de hijos a mostrar pero vino vacío;
            un nivel terminal (sin currentChildLevel) no tiene hijos por diseño. -->
       <div class="empty" *ngIf="currentChildLevel && !currentNodes()?.length">
-        No hay elementos para este nivel.
+        {{ 'nav.emptyLevel' | t }}
       </div>
     </div>
   </div>
@@ -82,8 +82,8 @@
   <!-- Columna derecha: seleccionados -->
   <div class="right-col">
     <div class="sel-header">
-      <h4>Seleccionados</h4>
-      <span class="hint">Se actualizan al marcar/desmarcar</span>
+      <h4>{{ 'nav.selected' | t }}</h4>
+      <span class="hint">{{ 'nav.selectedHint' | t }}</span>
     </div>
 
     <div class="sel-scroll">
@@ -98,7 +98,7 @@
 
           <!-- Luego por nivel -->
           <div class="sel-group" *ngFor="let grp of src.groups">
-            <div class="sel-level">{{ grp.levelName | titlecase }}</div>
+            <div class="sel-level">{{ grp.levelName | level }}</div>
 
             <ul class="sel-list">
               <li class="sel-item" *ngFor="let it of grp.items">
@@ -109,7 +109,7 @@
 
                 <button mat-icon-button
                         (click)="removeSelected(src.sourceId, grp.levelIdx, it.value)"
-                        aria-label="Quitar">
+                        [attr.aria-label]="'nav.remove' | t">
                   <mat-icon>close</mat-icon>
                 </button>
               </li>
@@ -120,7 +120,7 @@
       </ng-container>
 
       <ng-template #noSel>
-        <div class="empty">Aún no has seleccionado elementos.</div>
+        <div class="empty">{{ 'nav.noSelection' | t }}</div>
       </ng-template>
     </div>
   </div>

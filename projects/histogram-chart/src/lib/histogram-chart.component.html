@@ -3,9 +3,9 @@
           (click)="toggleInfo($event)"
           (mouseenter)="showInfo($event)" (mouseleave)="hideInfo()"
           (focus)="showInfo($event)" (blur)="hideInfo()"
-          [attr.aria-label]="'Qué muestra ' + (infoTitle || title)"
+          [attr.aria-label]="'hist.infoAria' | t: { title: infoTitle || title }"
           [attr.aria-expanded]="!!infoPop">ⓘ</button>
-  <canvas #canvas role="img" [attr.aria-label]="'Histograma de ' + title"></canvas>
+  <canvas #canvas role="img" [attr.aria-label]="'hist.canvasAria' | t: { title: title }"></canvas>
 </div>
 
 <!-- Cuadro informativo: fijo en pantalla para no cortarse en las orillas. -->

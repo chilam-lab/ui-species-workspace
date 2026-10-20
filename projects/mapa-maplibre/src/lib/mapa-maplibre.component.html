@@ -10,7 +10,7 @@
 
   <!-- Leyenda (se muestra si hay items) -->
   <div class="legend" *ngIf="legendItems?.length">
-    <div class="legend-title">Score por celda</div>
+    <div class="legend-title">{{ legendTitle }}</div>
     <div class="legend-scale">
       <div class="legend-item" *ngFor="let it of legendItems">
         <span class="swatch" [style.background]="it.color"></span>

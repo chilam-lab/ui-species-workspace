@@ -1,4 +1,5 @@
 import { Component, AfterViewInit, Input, OnChanges, OnDestroy, SimpleChanges, ViewChild, ElementRef, EventEmitter, Output, NgZone } from '@angular/core';
+import { ScoreColorMode, ColorScale, scoreScale, probabilityScale } from './score-color-scales';
 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -43,6 +44,12 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
   @Input() cellSelectMode = false;
   /** Celdas marcadas como excluidas: se pintan en gris sobre la capa de ocurrencias. */
   @Input() excludedCells: Array<number | string> = [];
+  /** Tipo de coloración del mapa de score, como el selector de la versión
+   *  estable: 'deviation' (desviación estándar, por defecto), 'range' (rango
+   *  igual) o 'jenks' (cortes naturales). Cambiarlo recolorea sin volver a
+   *  pedir el análisis. Con mapa de probabilidad se usa la escala 0..1. */
+  @Input() scoreColorMode: ScoreColorMode = 'deviation';
+
   @Output() cellClick = new EventEmitter<{ cell_id: number | string; occ: number | null; score: number | null }>();
 
   /** Leyenda (opcional): si las pasas, se usan; si no, se autogeneran tras cada análisis */
@@ -76,6 +83,11 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
   private lastOccIds = new Set<number | string>();
   private lastExcludedIds = new Set<number | string>();
   private lastScoreIds = new Set<number | string>();
+  /** Valores del último pintado de score y si el análisis fue de probabilidad,
+   *  para recolorear al cambiar scoreColorMode. */
+  private lastVizValues: number[] = [];
+  private probMode = false;
+  public legendTitle = 'Score por celda';
 
   /** Si un cambio de 'run'/'occValues' llega antes de que el mapa termine de
    *  cargar (evento 'load' de maplibre), se guarda aquí y se re-ejecuta en
@@ -219,6 +231,10 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
 
     if ('excludedCells' in ch && !ch['excludedCells'].firstChange) {
       this.aplicarExcluidas();
+    }
+
+    if ('scoreColorMode' in ch && !ch['scoreColorMode'].firstChange) {
+      this.repaintScores();
     }
 
     if ('cellSelectMode' in ch && !this.cellSelectMode && this.map) {
@@ -464,6 +480,7 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
       return;
     }
     if (!payload?.grid_id) { console.warn('getEpsScrRelation requiere grid_id.'); return; }
+    this.probMode = (payload as any)?.mapa_prob === true;
 
     // 🔒 Loading ON al iniciar la operación
     this.setLoading(true);
@@ -640,9 +657,9 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
 
       console.log(`[Maplibre:${this.mapId}] Scores aplicados: ${applied}, minViz=${minViz}, maxViz=${maxViz}`);
 
-      // Cortes por desviación estándar (media + k·σ), como la versión estable
-      // (createRankColor, map_type 'deviation') → PINTA + LEYENDA.
-      this.updateNicheScorePaintDeviation(vizValues);
+      // Escala de la versión estable según scoreColorMode (o probabilidad) → PINTA + LEYENDA.
+      this.lastVizValues = vizValues;
+      this.repaintScores();
 
       // Si mandas breaks/colors por Input, sobreescribe la leyenda con los tuyos
       if (this.legendBreaks.length && this.legendColors.length) {
@@ -654,32 +671,29 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
   }
 
   /** Define rampa DISCRETA por rangos usando 'step' y guarda los rangos para la leyenda */
-  /**
-   * Escala del mapa de la versión estable: 9 colores RdBu (azul = bajo, rojo =
-   * alto) con cortes en media + k·σ, k = −3..4 (d3.deviation = σ muestral).
-   * Si σ = 0 (todas las celdas iguales) se pinta un solo color neutro.
-   */
-  private updateNicheScorePaintDeviation(values: number[]) {
-    const n = values.length;
-    if (!n) { this.updateNicheScorePaintSymmetric(Number.NaN); return; }
-    const mean = values.reduce((a, b) => a + b, 0) / n;
-    const sd = n > 1 ? Math.sqrt(values.reduce((a, v) => a + (v - mean) ** 2, 0) / (n - 1)) : 0;
-    if (!(sd > 0)) { this.updateNicheScorePaintSymmetric(Number.NaN); return; }
-
-    const edges = [-3, -2, -1, 0, 1, 2, 3, 4].map((k) => mean + k * sd);
-    // colorbrewer.RdBu[9] invertido (como v1: colors.reverse())
-    const colors = ['#2166ac', '#4393c3', '#92c5de', '#d1e5f0', '#f7f7f7', '#fddbc7', '#f4a582', '#d6604d', '#b2182b'];
+  /** Pinta la capa de score con la escala vigente (scoreColorMode o
+   *  probabilidad) sobre los últimos valores y reconstruye la leyenda. */
+  private repaintScores() {
+    if (!this.map || !this.map.getLayer(this.nicheScoreLayerId)) return;
+    const values = this.lastVizValues;
+    const scale: ColorScale | null = !values.length
+      ? null
+      : this.probMode ? probabilityScale() : scoreScale(this.scoreColorMode, values);
+    if (!scale) { this.updateNicheScorePaintSymmetric(Number.NaN); return; }
 
     const scoreExpr: any = ['coalesce', ['feature-state', 'score_viz'], -9999];
-    const steps: any[] = [colors[0]];
-    edges.forEach((e, i) => steps.push(e, colors[i + 1]));
+    const steps: any[] = [scale.colors[0]];
+    scale.edges.forEach((e, i) => steps.push(e, scale.colors[i + 1]));
     const colorExpr: any = ['case', ['==', scoreExpr, -9999], 'rgba(0,0,0,0)', ['step', scoreExpr, ...steps]];
 
     this.map.setPaintProperty(this.nicheScoreLayerId, 'fill-color', colorExpr);
     this.map.setPaintProperty(this.nicheScoreLayerId, 'fill-opacity', [
       'case', ['==', scoreExpr, -9999], 0.0, 1.0
     ]);
-    this.buildLegendFromRanges(edges, colors);
+    this.ngZone.run(() => {
+      this.legendTitle = this.probMode ? 'Probabilidad' : 'Score por celda';
+      this.buildLegendFromRanges(scale.edges, scale.colors, this.probMode);
+    });
   }
 
   private updateNicheScorePaintSymmetric(maxAbs: number) {
@@ -740,8 +754,10 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
   }
 
   /** Construye items de leyenda mostrando RANGOS por color a partir de los 'edges' usados en 'step' */
-  private buildLegendFromRanges(edges: number[], colors: string[]) {
-    const fmt = (n: number) => new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 }).format(n);
+  private buildLegendFromRanges(edges: number[], colors: string[], percent = false) {
+    const fmt = percent
+      ? (n: number) => `${new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 }).format(n * 100)}%`
+      : (n: number) => new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 }).format(n);
 
     // colors.length = edges.length + 1: [< e0], [e0 – e1], …, [≥ e_last]
     const labels: string[] = [`< ${fmt(edges[0])}`];

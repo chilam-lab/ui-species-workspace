@@ -159,13 +159,8 @@ td.col-contexto {
 /* Encabezado con botón ⓘ que explica la columna (como la versión estable). */
 th .th-label { white-space: nowrap; }
 
-th .th-info {
-  position: relative;
-  display: inline-block;
-  margin-left: 4px;
-}
-
 th .info-btn {
+  margin-left: 4px;
   border: none;
   background: none;
   padding: 0 2px;
@@ -175,14 +170,10 @@ th .info-btn {
   cursor: help;
 }
 
-th .info-pop {
-  display: none;
-  position: absolute;
-  top: 120%;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
-  width: 260px;
+.info-pop-fixed {
+  position: fixed;
+  z-index: 1000;
+  width: 280px;
   padding: 8px 10px;
   background: #fff;
   color: #333;
@@ -190,14 +181,12 @@ th .info-pop {
   font-size: 0.8rem;
   line-height: 1.35;
   text-align: left;
-  white-space: normal;
   border: 1px solid #ddd;
   border-radius: 6px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
 }
 
-th .info-pop strong { display: block; margin-bottom: 4px; text-align: center; }
+.info-pop-fixed.above { transform: translateY(-100%); }
 
-th .th-info:hover .info-pop,
-th .th-info:focus-within .info-pop,
-th .th-info.open .info-pop { display: block; }
+.info-pop-fixed strong { display: block; margin-bottom: 4px; text-align: center; }

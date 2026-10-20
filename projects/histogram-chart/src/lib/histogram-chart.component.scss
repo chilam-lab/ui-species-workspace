@@ -30,3 +30,36 @@ canvas {
   position: relative;
   z-index: 1;
 }
+
+.info-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 2;
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  font-size: 1rem;
+  line-height: 1;
+  color: #555;
+  cursor: help;
+}
+
+.info-pop-fixed {
+  position: fixed;
+  z-index: 1000;
+  width: 280px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #333;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+
+  &.above { transform: translateY(-100%); }
+
+  strong { display: block; margin-bottom: 4px; }
+}

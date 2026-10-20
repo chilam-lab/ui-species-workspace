@@ -41,15 +41,12 @@
       <tr>
         <th *ngFor="let col of columns" (click)="setSort(col)">
           <span class="th-label">{{ columnInfo[col]?.label ?? col }}</span>
-          <span class="th-info" *ngIf="columnInfo[col] as info"
-                [class.open]="openInfo === col">
-            <button type="button" class="info-btn" (click)="toggleInfo(col, $event)"
-                    [attr.aria-label]="'Qué significa ' + info.label" [attr.aria-expanded]="openInfo === col">ⓘ</button>
-            <span class="info-pop" role="tooltip">
-              <strong>{{ info.label }}</strong>
-              {{ info.help }}
-            </span>
-          </span>
+          <button type="button" class="info-btn" *ngIf="columnInfo[col] as info"
+                  (click)="toggleInfo(col, $event)"
+                  (mouseenter)="showInfo(col, $event)" (mouseleave)="hideInfo()"
+                  (focus)="showInfo(col, $event)" (blur)="hideInfo()"
+                  [attr.aria-label]="'Qué significa ' + info.label"
+                  [attr.aria-expanded]="infoPop?.col === col">ⓘ</button>
           <span *ngIf="sortColumn === col">
             {{ sortDirection === 'asc' ? '▲' : '▼' }}
           </span>
@@ -99,4 +96,11 @@
     </div>
   </div>
 
+
+  <!-- Ayuda de columna: fija en pantalla para no cortarse en las orillas. -->
+  <div class="info-pop-fixed" *ngIf="infoPop as p" role="tooltip"
+       [style.top.px]="p.top" [style.left.px]="p.left" [class.above]="p.above">
+    <strong>{{ columnInfo[p.col]?.label }}</strong>
+    {{ columnInfo[p.col]?.help }}
+  </div>
 </div>

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, HostListener, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TablaSpeciesService } from './services/tabla-species.service';
@@ -161,11 +161,6 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
         'n', 'ni', 'nj', 'nij', 'epsilon', 'score'];
     }
 
-    // Con un solo target la columna se repite en todas las filas: se oculta.
-    if (new Set(this.data.map(r => r.especie_target)).size <= 1) {
-      this.columns = this.columns.filter(c => c !== 'especie_target');
-    }
-
     // Las columnas de contexto solo existen si alguna fila trae contexto
     // (colecciones propias del usuario); si no, se ocultan.
     for (const col of ['contexto_target', 'contexto_covar']) {
@@ -201,12 +196,40 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
     ocupacion: { label: 'Ocupación de decil (%)', help: 'Describe cuánto abarca la variable de la distribución del decil. Por ejemplo, si la variable ocupa 10 de 100 celdas del decil, la ocupación es 10%.' },
   };
 
-  /** Columna cuyo ⓘ está abierto (clic para fijarlo; también se ve al pasar el mouse). */
-  openInfo: string | null = null;
+  /** Popover de ayuda de columna. Posición FIJA en pantalla, calculada desde el
+   *  botón ⓘ y recortada al viewport: dentro de la celda (position absolute)
+   *  se cortaba en las columnas de las orillas. pinned = abierto con clic. */
+  infoPop: { col: string; top: number; left: number; above: boolean; pinned: boolean } | null = null;
+  private readonly POP_WIDTH = 280;
+
+  private placeInfo(col: string, ev: Event, pinned: boolean) {
+    const btn = (ev.currentTarget ?? ev.target) as HTMLElement;
+    const r = btn.getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const left = Math.min(Math.max(r.left + r.width / 2 - this.POP_WIDTH / 2, 8), vw - this.POP_WIDTH - 8);
+    const above = r.bottom + 180 > vh && r.top > 180; // sin espacio abajo → arriba
+    this.infoPop = { col, left, top: above ? r.top - 6 : r.bottom + 6, above, pinned };
+  }
+
+  showInfo(col: string, ev: Event) {
+    if (this.infoPop?.pinned) return;
+    this.placeInfo(col, ev, false);
+  }
+
+  hideInfo() {
+    if (this.infoPop && !this.infoPop.pinned) this.infoPop = null;
+  }
 
   toggleInfo(col: string, ev: Event) {
     ev.stopPropagation(); // que el clic en ⓘ no ordene la columna
-    this.openInfo = this.openInfo === col ? null : col;
+    if (this.infoPop?.pinned && this.infoPop.col === col) { this.infoPop = null; return; }
+    this.placeInfo(col, ev, true);
+  }
+
+  @HostListener('window:scroll')
+  @HostListener('window:resize')
+  closeInfo() {
+    this.infoPop = null;
   }
 
   /** Nombre a mostrar del elemento (especie, capa, variable o colección propia). */

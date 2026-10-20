@@ -1,6 +1,6 @@
 import {
   Component, ViewChild, ElementRef, Input, Output, EventEmitter,
-  OnChanges, SimpleChanges, AfterViewInit, DestroyRef, inject, NgZone
+  OnChanges, SimpleChanges, AfterViewInit, DestroyRef, inject, NgZone, HostListener
 } from '@angular/core';
 
 import Chart from 'chart.js/auto';
@@ -51,6 +51,34 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
   @Input() lineLabel = 'Recall';
   @Input() lineAxisLabel = 'Recall (%)';
   @Input() lineMax = 100;
+  /** Líneas extra del tooltip de cada punto de la línea (p. ej. VP, FN, nulos). */
+  @Input() lineTooltip: Array<string[] | null> | null = null;
+
+  /** Cuadro informativo (botón ⓘ arriba a la derecha), como en la versión estable. */
+  @Input() info: string | null = null;
+  @Input() infoTitle: string | null = null;
+
+  /** Popover del ⓘ con posición FIJA en pantalla, recortada al viewport. */
+  infoPop: { top: number; left: number; above: boolean; pinned: boolean } | null = null;
+  private readonly POP_WIDTH = 280;
+
+  private placeInfo(ev: Event, pinned: boolean) {
+    const r = ((ev.currentTarget ?? ev.target) as HTMLElement).getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const left = Math.min(Math.max(r.left + r.width / 2 - this.POP_WIDTH / 2, 8), vw - this.POP_WIDTH - 8);
+    const above = r.bottom + 160 > vh && r.top > 160;
+    this.infoPop = { left, top: above ? r.top - 6 : r.bottom + 6, above, pinned };
+  }
+  showInfo(ev: Event) { if (!this.infoPop?.pinned) this.placeInfo(ev, false); }
+  hideInfo() { if (this.infoPop && !this.infoPop.pinned) this.infoPop = null; }
+  toggleInfo(ev: Event) {
+    ev.stopPropagation();
+    if (this.infoPop?.pinned) { this.infoPop = null; return; }
+    this.placeInfo(ev, true);
+  }
+  @HostListener('window:scroll')
+  @HostListener('window:resize')
+  closeInfo() { this.infoPop = null; }
 
   @Output() barSelected = new EventEmitter<{ index: number; min: number; max: number }>();
 
@@ -99,7 +127,7 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
     // Si estamos en modo customData, damos prioridad a ese flujo
     if (
       this.useCustomData &&
-      (('customData' in ch) || ('useCustomData' in ch) || ('lineData' in ch)) &&
+      (('customData' in ch) || ('useCustomData' in ch) || ('lineData' in ch) || ('lineTooltip' in ch)) &&
       this.canvasRef?.nativeElement
     ) {
       console.log('[Histogram] ngOnChanges → drawFromCustomData', this.customData);
@@ -317,7 +345,9 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
               label: ctxTooltip => {
                 if ((ctxTooltip.dataset as any).yAxisID === 'y1') {
                   const v = ctxTooltip.raw as number | null;
-                  return v === null || v === undefined ? ` ${this.lineLabel}: —` : ` ${this.lineLabel}: ${this.f(v)}%`;
+                  const main = v === null || v === undefined ? ` ${this.lineLabel}: —` : ` ${this.lineLabel}: ${this.f(v)}%`;
+                  const extra = this.lineTooltip?.[ctxTooltip.dataIndex];
+                  return extra?.length ? [main, ...extra.map(l => ` ${l}`)] : main;
                 }
                 const idx = ctxTooltip.dataIndex;
                 const val = values[idx];

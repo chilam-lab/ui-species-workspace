@@ -1,3 +1,16 @@
 <div class="histogram-card" [style.height.px]="height">
+  <button type="button" class="info-btn" *ngIf="info"
+          (click)="toggleInfo($event)"
+          (mouseenter)="showInfo($event)" (mouseleave)="hideInfo()"
+          (focus)="showInfo($event)" (blur)="hideInfo()"
+          [attr.aria-label]="'Qué muestra ' + (infoTitle || title)"
+          [attr.aria-expanded]="!!infoPop">ⓘ</button>
   <canvas #canvas role="img" [attr.aria-label]="'Histograma de ' + title"></canvas>
+</div>
+
+<!-- Cuadro informativo: fijo en pantalla para no cortarse en las orillas. -->
+<div class="info-pop-fixed" *ngIf="infoPop as p" role="tooltip"
+     [style.top.px]="p.top" [style.left.px]="p.left" [class.above]="p.above">
+  <strong>{{ infoTitle || title }}</strong>
+  {{ info }}
 </div>

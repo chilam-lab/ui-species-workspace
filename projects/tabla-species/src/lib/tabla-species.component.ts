@@ -114,53 +114,22 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
     const source = Array.isArray(raw) ? raw : [];
 
     if (this.decileMode) {
-      // === MODO TABLA DE DECILES ===
+      // === MODO TABLA DE DECILES (como la versión estable) ===
+      // El backend agrupa las CELDAS por score y manda, por covariable presente
+      // en el decil: njd, cobertura (njd/nj·100) y ocupacion (njd/celdas del
+      // decil·100).
+      this.data = source.map((item: any) => ({
+        decil: item.decil ?? this.decile ?? null,
+        especie_target: this.especieDe(item?.metadata_target),
+        contexto_target: this.contextoDe(item?.metadata_target),
+        especie_covar: this.especieDe(item?.metadata_covars),
+        contexto_covar: this.contextoDe(item?.metadata_covars),
+        epsilon: this.round2(item.epsilon),
+        score: this.round2(item.score),
+        cobertura: this.round2(item.cobertura),
+        ocupacion: this.round2(item.ocupacion),
+      }));
 
-      // Total nij del decil (para porcentaje dentro del decil)
-      const totalNijDecile = source.reduce((acc, item: any) => {
-        const nij = Number(item.num_nij ?? item.nij ?? 0);
-        return acc + (Number.isFinite(nij) ? nij : 0);
-      }, 0) || 1; // evita división entre 0
-
-      this.data = source.map((item: any) => {
-        const nij = Number(item.num_nij ?? item.nij ?? 0);
-        const nj = Number(item.nj ?? 0);
-
-        const epsilonRaw = Number(item.epsilon ?? 0);
-        const scoreRaw   = Number(item.score ?? 0);
-
-        // % de cobertura total (qué tanto de la cobertura de la covar cae en este decil)
-        const pctCoberturaTotal = nj > 0 ? (nij / nj) * 100 : 0;
-
-        // % de este par dentro del total de celdas del decil
-        const pctEnDecil = (nij / totalNijDecile) * 100;
-
-        return {
-          // Número de decil (Input)
-          decil: this.decile ?? null,
-
-          // Nombres de especies
-          // Sin columnas id en este modo: cada contexto junto a la especie de su lado.
-          especie_target: this.especieDe(item?.metadata_target),
-          contexto_target: this.contextoDe(item?.metadata_target),
-          especie_covar: this.especieDe(item?.metadata_covars),
-          contexto_covar: this.contextoDe(item?.metadata_covars),
-
-          // Métricas redondeadas
-          epsilon: Number.isFinite(epsilonRaw)
-            ? Number(epsilonRaw.toFixed(2))
-            : epsilonRaw,
-          score: Number.isFinite(scoreRaw)
-            ? Number(scoreRaw.toFixed(2))
-            : scoreRaw,
-
-          // Porcentajes (también redondeados a 2 decimales)
-          pct_cobertura_total: Number(pctCoberturaTotal.toFixed(2)),
-          pct_en_decil: Number(pctEnDecil.toFixed(2)),
-        };
-      });
-
-      // Orden de columnas para la tabla de deciles
       this.columns = [
         'decil',
         'especie_target',
@@ -169,39 +138,32 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
         'contexto_covar',
         'epsilon',
         'score',
-        'pct_cobertura_total',
-        'pct_en_decil'
+        'cobertura',
+        'ocupacion'
       ];
     } else {
       // === MODO TABLA "NORMAL" (RELACIONES COMPLETAS) ===
-      this.data = source.map((item: any) => {
-        const epsilonRaw = Number(item.epsilon ?? 0);
-        const scoreRaw   = Number(item.score ?? 0);
+      // Sin ids de target/covariable: el usuario no tiene contexto de ellos.
+      this.data = source.map((item: any) => ({
+        especie_target: this.especieDe(item?.metadata_target),
+        contexto_target: this.contextoDe(item?.metadata_target),
+        especie_covar: this.especieDe(item?.metadata_covars),
+        contexto_covar: this.contextoDe(item?.metadata_covars),
+        n: item.n,
+        ni: item.ni,
+        nj: item.nj,
+        nij: item.num_nij,
+        epsilon: this.round2(item.epsilon),
+        score: this.round2(item.score),
+      }));
 
-        return {
-          // Cada contexto va junto al id de su lado (target / covariable).
-          id_target: item.id_target,
-          contexto_target: this.contextoDe(item?.metadata_target),
-          especie_target: this.especieDe(item?.metadata_target),
-          id_covars: item.id_covars,
-          contexto_covar: this.contextoDe(item?.metadata_covars),
-          especie_covar: this.especieDe(item?.metadata_covars),
-          n: item.n,
-          ni: item.ni,
-          nj: item.nj,
-          nij: item.num_nij,
+      this.columns = ['especie_target', 'contexto_target', 'especie_covar', 'contexto_covar',
+        'n', 'ni', 'nj', 'nij', 'epsilon', 'score'];
+    }
 
-          // también redondeados a 2 decimales aquí
-          epsilon: Number.isFinite(epsilonRaw)
-            ? Number(epsilonRaw.toFixed(2))
-            : epsilonRaw,
-          score: Number.isFinite(scoreRaw)
-            ? Number(scoreRaw.toFixed(2))
-            : scoreRaw,
-        };
-      });
-
-      this.columns = this.data.length ? Object.keys(this.data[0]) : [];
+    // Con un solo target la columna se repite en todas las filas: se oculta.
+    if (new Set(this.data.map(r => r.especie_target)).size <= 1) {
+      this.columns = this.columns.filter(c => c !== 'especie_target');
     }
 
     // Las columnas de contexto solo existen si alguna fila trae contexto
@@ -214,6 +176,37 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
 
     // Siempre resetea la página cuando cambian los datos
     this.currentPage = 1;
+  }
+
+  private round2(v: any): number | null {
+    const n = Number(v);
+    return Number.isFinite(n) ? Number(n.toFixed(2)) : null;
+  }
+
+  /** Encabezado legible y descripción (botón ⓘ) de cada columna, con los
+   *  textos de la versión estable. */
+  readonly columnInfo: Record<string, { label: string; help: string }> = {
+    decil: { label: 'Decil', help: 'Decil donde existe presencia de las variables explicatorias. Las celdas del mapa se ordenan por su score y se dividen en 10 grupos; el decil 10 son las de mayor score.' },
+    especie_target: { label: 'Target', help: 'Especie o elemento objetivo del análisis.' },
+    contexto_target: { label: 'Contexto del target', help: 'Datos de la colección propia usada como target (Mis datos).' },
+    especie_covar: { label: 'Variable', help: 'Variable explicativa: especie, rango de una variable climática o de elevación, o colección propia.' },
+    contexto_covar: { label: 'Contexto de la variable', help: 'Datos de la colección propia usada como variable (Mis datos).' },
+    n: { label: 'n', help: 'Es el número de celdas consideradas en el análisis (las celdas de la región, sin las que se hayan borrado).' },
+    ni: { label: 'ni', help: 'Es el número de celdas con al menos una ocurrencia de la variable objetivo.' },
+    nj: { label: 'nj', help: 'Es el número de celdas con al menos una ocurrencia de la variable explicatoria.' },
+    nij: { label: 'nij', help: 'Es el número de celdas donde ocurre una interacción de la variable explicatoria con la variable objetivo.' },
+    epsilon: { label: 'Epsilon', help: 'Épsilon cuantifica si hay evidencia o no de correlación espacial entre la variable explicativa y la variable objetivo. Es una prueba de hipótesis donde la hipótesis nula es que la variable objetivo se distribuye independientemente de la variable explicativa. Mide, en unidades de desviación estándar, cuánto y en qué dirección cambia la frecuencia de presencias de la variable objetivo cuando sólo se consideran áreas donde la variable explicativa está presente.' },
+    score: { label: 'Score', help: 'Compara la proporción de la variable explicativa en las celdas de la variable objetivo contra su proporción en el resto de las celdas. Si es mayor dentro (score positivo), la variable favorece la presencia del objetivo, y viceversa. Se aplica logaritmo natural (alpha = 1/n).' },
+    cobertura: { label: 'Cobertura de variable (%)', help: 'Describe cuánto abarca el decil de la distribución total de la variable. Por ejemplo, si la variable se distribuye sólo dentro del decil, la cobertura de variable es 100%.' },
+    ocupacion: { label: 'Ocupación de decil (%)', help: 'Describe cuánto abarca la variable de la distribución del decil. Por ejemplo, si la variable ocupa 10 de 100 celdas del decil, la ocupación es 10%.' },
+  };
+
+  /** Columna cuyo ⓘ está abierto (clic para fijarlo; también se ve al pasar el mouse). */
+  openInfo: string | null = null;
+
+  toggleInfo(col: string, ev: Event) {
+    ev.stopPropagation(); // que el clic en ⓘ no ordene la columna
+    this.openInfo = this.openInfo === col ? null : col;
   }
 
   /** Nombre a mostrar del elemento (especie, capa, variable o colección propia). */

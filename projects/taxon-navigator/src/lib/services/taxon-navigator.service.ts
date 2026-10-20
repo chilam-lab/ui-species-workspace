@@ -79,8 +79,14 @@ export class TaxonNavigatorService {
             // value = lo que debe viajar al backend
             value = bid || rawText;
 
-            // label = lo que debe ver el usuario
-            label = rangeText || rawText;
+            // label = lo que debe ver el usuario. Formato viejo: el rango viene
+            // en "tag:" dentro de value. Formato actual: value es solo el id
+            // (300030) y el rango legible viene en r.label ("bio004 [0.00 :
+            // 64.65]"); sin esto el navegador mostraba el id.
+            const serverLabel = (r?.label != null && String(r.label).trim() !== '' && String(r.label).trim() !== 'tag')
+              ? String(r.label).trim()
+              : '';
+            label = tagMatch ? rangeText : (serverLabel || rangeText || rawText);
           } else {
             // SNIB / otros casos:
             // r.value suele traer el valor real

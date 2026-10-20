@@ -40,7 +40,16 @@
     <thead>
       <tr>
         <th *ngFor="let col of columns" (click)="setSort(col)">
-          {{ col }}
+          <span class="th-label">{{ columnInfo[col]?.label ?? col }}</span>
+          <span class="th-info" *ngIf="columnInfo[col] as info"
+                [class.open]="openInfo === col">
+            <button type="button" class="info-btn" (click)="toggleInfo(col, $event)"
+                    [attr.aria-label]="'Qué significa ' + info.label" [attr.aria-expanded]="openInfo === col">ⓘ</button>
+            <span class="info-pop" role="tooltip">
+              <strong>{{ info.label }}</strong>
+              {{ info.help }}
+            </span>
+          </span>
           <span *ngIf="sortColumn === col">
             {{ sortDirection === 'asc' ? '▲' : '▼' }}
           </span>

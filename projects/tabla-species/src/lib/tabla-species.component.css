@@ -155,3 +155,49 @@ td.col-contexto {
   font-size: 0.8em;
   line-height: 1.3;
 }
+
+/* Encabezado con botón ⓘ que explica la columna (como la versión estable). */
+th .th-label { white-space: nowrap; }
+
+th .th-info {
+  position: relative;
+  display: inline-block;
+  margin-left: 4px;
+}
+
+th .info-btn {
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font-size: 0.95em;
+  line-height: 1;
+  color: #555;
+  cursor: help;
+}
+
+th .info-pop {
+  display: none;
+  position: absolute;
+  top: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: 260px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #333;
+  font-weight: normal;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+th .info-pop strong { display: block; margin-bottom: 4px; text-align: center; }
+
+th .th-info:hover .info-pop,
+th .th-info:focus-within .info-pop,
+th .th-info.open .info-pop { display: block; }

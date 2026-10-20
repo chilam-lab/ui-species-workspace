@@ -2,6 +2,7 @@ import { Component, HostListener, Input, OnInit, OnChanges, SimpleChanges } from
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TablaSpeciesService } from './services/tabla-species.service';
+import { ExportCell, csvBlob, downloadBlob, printTable, toDelimited, xlsxBlob } from './table-export';
 
 @Component({
   selector: 'tabla-species',
@@ -33,6 +34,11 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
   @Input() uuid: string | null = null;
   @Input() decile: number | null = null;
   @Input() metric: 'epsilon' | 'score' = 'epsilon';
+
+  /** Nombre base de los archivos exportados (sin extensión) y título de la
+   *  hoja / impresión. En modo deciles se le agrega el decil. */
+  @Input() exportName = 'tabla';
+  @Input() exportTitle = 'Tabla';
 
   /** Datos internos normalizados para mostrar en la tabla */
   data: any[] = [];
@@ -171,6 +177,66 @@ export class TablaSpeciesComponent implements OnInit, OnChanges {
 
     // Siempre resetea la página cuando cambian los datos
     this.currentPage = 1;
+  }
+
+  // ===================== Exportación =====================
+  // Como la versión estable (botones Copy / CSV / Excel / Print): se exportan
+  // TODAS las filas filtradas y ordenadas (no solo la página visible), con los
+  // encabezados legibles.
+
+  /** Mensaje breve tras copiar / si el navegador bloquea la impresión. */
+  exportMsg: string | null = null;
+  private exportMsgTimer: any = null;
+
+  private flash(msg: string) {
+    this.exportMsg = msg;
+    clearTimeout(this.exportMsgTimer);
+    this.exportMsgTimer = setTimeout(() => (this.exportMsg = null), 3000);
+  }
+
+  private exportMatrix(): { headers: string[]; rows: ExportCell[][] } {
+    const cols = this.columns;
+    return {
+      headers: cols.map(c => this.columnInfo[c]?.label ?? c),
+      rows: this.filteredData.map(r => cols.map(c => r[c] as ExportCell)),
+    };
+  }
+
+  private fileBase(): string {
+    const base = this.decileMode && this.decile != null ? `${this.exportName}_decil${this.decile}` : this.exportName;
+    return base.replace(/[^\w.-]+/g, '_');
+  }
+
+  private sheetTitle(): string {
+    return this.decileMode && this.decile != null ? `${this.exportTitle} - decil ${this.decile}` : this.exportTitle;
+  }
+
+  exportCsv() {
+    const { headers, rows } = this.exportMatrix();
+    downloadBlob(csvBlob(headers, rows), `${this.fileBase()}.csv`);
+  }
+
+  exportExcel() {
+    const { headers, rows } = this.exportMatrix();
+    downloadBlob(xlsxBlob(this.sheetTitle(), headers, rows), `${this.fileBase()}.xlsx`);
+  }
+
+  async copyToClipboard() {
+    const { headers, rows } = this.exportMatrix();
+    const tsv = toDelimited(headers, rows, '\t');
+    try {
+      await navigator.clipboard.writeText(tsv);
+      this.flash(`Copiadas ${rows.length} filas al portapapeles`);
+    } catch {
+      this.flash('No se pudo copiar (el navegador no dio permiso al portapapeles)');
+    }
+  }
+
+  printTable() {
+    const { headers, rows } = this.exportMatrix();
+    if (!printTable(this.sheetTitle(), headers, rows)) {
+      this.flash('El navegador bloqueó la ventana de impresión; permite ventanas emergentes para este sitio');
+    }
   }
 
   private round2(v: any): number | null {

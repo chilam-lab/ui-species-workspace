@@ -19,6 +19,15 @@
       [disabled]="loading"
     />
 
+    <!-- Exportación (como la versión estable): todas las filas filtradas -->
+    <div class="export-buttons">
+      <button type="button" (click)="copyToClipboard()" [disabled]="loading || !filteredData.length" title="Copiar la tabla al portapapeles">Copiar</button>
+      <button type="button" (click)="exportCsv()" [disabled]="loading || !filteredData.length" title="Descargar en CSV">CSV</button>
+      <button type="button" (click)="exportExcel()" [disabled]="loading || !filteredData.length" title="Descargar en Excel (.xlsx)">Excel</button>
+      <button type="button" (click)="printTable()" [disabled]="loading || !filteredData.length" title="Imprimir la tabla">Imprimir</button>
+      <span class="export-msg" *ngIf="exportMsg" role="status">{{ exportMsg }}</span>
+    </div>
+
     <!-- Selector de registros por página -->
     <div class="page-size-control">
       <label>

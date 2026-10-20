@@ -190,3 +190,25 @@ th .info-btn {
 .info-pop-fixed.above { transform: translateY(-100%); }
 
 .info-pop-fixed strong { display: block; margin-bottom: 4px; text-align: center; }
+
+/* Botones de exportación */
+.export-buttons {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.export-buttons button {
+  padding: 5px 12px;
+  border: 1px solid #c9ced6;
+  border-radius: 4px;
+  background: #f7f8fa;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.export-buttons button:hover:not(:disabled) { background: #e9edf2; }
+.export-buttons button:disabled { opacity: 0.5; cursor: default; }
+
+.export-msg { font-size: 0.8rem; color: #2e7d32; }

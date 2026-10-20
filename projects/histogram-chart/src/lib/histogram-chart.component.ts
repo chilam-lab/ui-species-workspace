@@ -41,6 +41,17 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
   @Input() useCustomData = false;
   @Input() customData: { label: string; value: number }[] | null = null;
 
+  /**
+   * Serie opcional dibujada como LÍNEA sobre las barras (modo customData), con
+   * su propio eje a la derecha (0..lineMax). Ej.: recall (%) por decil encima
+   * del score promedio por decil, como la gráfica "Score decil" de la v1.
+   * Un valor por barra, en el mismo orden; null = sin punto.
+   */
+  @Input() lineData: Array<number | null> | null = null;
+  @Input() lineLabel = 'Recall';
+  @Input() lineAxisLabel = 'Recall (%)';
+  @Input() lineMax = 100;
+
   @Output() barSelected = new EventEmitter<{ index: number; min: number; max: number }>();
 
   @ViewChild('canvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
@@ -88,7 +99,7 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
     // Si estamos en modo customData, damos prioridad a ese flujo
     if (
       this.useCustomData &&
-      (('customData' in ch) || ('useCustomData' in ch)) &&
+      (('customData' in ch) || ('useCustomData' in ch) || ('lineData' in ch)) &&
       this.canvasRef?.nativeElement
     ) {
       console.log('[Histogram] ngOnChanges → drawFromCustomData', this.customData);
@@ -260,16 +271,38 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
       ? (maxVal > 0 ? maxVal * 1.1 : 1)   // ej. 0.59 → 0.649, 0.04 → 0.044
       : Math.max(10, Math.ceil(maxVal / 5) * 5);
 
+    const line = isCustom && Array.isArray(this.lineData) && this.lineData.some(v => v !== null && v !== undefined)
+      ? this.lineData.slice(0, labels.length)
+      : null;
+
+    const datasets: any[] = [{
+      label: this.yLabel,
+      data: values,
+      borderRadius: 6,
+      backgroundColor: 'rgba(33,150,243,0.8)',
+      order: 1,
+    }];
+    if (line) {
+      datasets.push({
+        type: 'line',
+        label: this.lineLabel,
+        data: line,
+        yAxisID: 'y1',
+        borderColor: '#d84315',
+        backgroundColor: '#d84315',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.2,
+        spanGaps: true,
+        order: 0,
+      });
+    }
+
     const config: ChartConfiguration<'bar'> = {
       type: 'bar',
       data: {
         labels,
-        datasets: [{
-          label: this.yLabel,
-          data: values,
-          borderRadius: 6,
-          backgroundColor: 'rgba(33,150,243,0.8)',
-        }]
+        datasets
       },
       options: {
         responsive: true,
@@ -277,11 +310,15 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
         resizeDelay: 150,
         animation: { duration: 0 },
         plugins: {
-          legend: { display: false },
+          legend: { display: !!line },
           title: { display: true, text: this.title },
           tooltip: {
             callbacks: {
               label: ctxTooltip => {
+                if ((ctxTooltip.dataset as any).yAxisID === 'y1') {
+                  const v = ctxTooltip.raw as number | null;
+                  return v === null || v === undefined ? ` ${this.lineLabel}: —` : ` ${this.lineLabel}: ${this.f(v)}%`;
+                }
                 const idx = ctxTooltip.dataIndex;
                 const val = values[idx];
                 let text = ` ${val}`;
@@ -311,7 +348,17 @@ export class HistogramChartComponent implements AfterViewInit, OnChanges {
               callback: (val) => this.f(val as number)
             },
             max: yMax    // 👈 aquí la magia: para deciles, max ≈ valor máximo de tus datos
-          }
+          },
+          ...(line ? {
+            y1: {
+              position: 'right' as const,
+              min: 0,
+              max: this.lineMax,
+              title: { display: !!this.lineAxisLabel, text: this.lineAxisLabel },
+              grid: { drawOnChartArea: false },
+              ticks: { callback: (val: any) => `${val}%` }
+            }
+          } : {})
         } : {}
       }
     };

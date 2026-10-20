@@ -38,11 +38,12 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
   @Input() occValues: Array<{ cell_id: number | string; occ: number }> = [];
 
   /** Selección de celdas: con cellSelectMode=true, un clic sobre una celda con
-   *  ocurrencias emite cellClick (el padre decide qué hacer, ej. excluirla). */
+   *  ocurrencias (Target) o con score (Resultados) emite cellClick; el padre
+   *  decide qué hacer (excluirla, mostrar su detalle). */
   @Input() cellSelectMode = false;
   /** Celdas marcadas como excluidas: se pintan en gris sobre la capa de ocurrencias. */
   @Input() excludedCells: Array<number | string> = [];
-  @Output() cellClick = new EventEmitter<{ cell_id: number | string; occ: number | null }>();
+  @Output() cellClick = new EventEmitter<{ cell_id: number | string; occ: number | null; score: number | null }>();
 
   /** Leyenda (opcional): si las pasas, se usan; si no, se autogeneran tras cada análisis */
   @Input() legendBreaks: number[] = [];
@@ -343,26 +344,33 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
    *  Se registra una sola vez sobre el mapa (no por capa) porque la capa base se
    *  quita y se vuelve a crear al cambiar de malla. */
   private registrarSeleccionDeCeldas() {
+    // Una celda es seleccionable si tiene ocurrencias (capa base, mapa de
+    // Target) o score (capa niche-score, mapa de Resultados).
     const hit = (point: maplibregl.PointLike) => {
-      if (!this.cellSelectMode || !this.map.getLayer(this.baseLayerId)) return null;
-      const feats = this.map.queryRenderedFeatures(point, { layers: [this.baseLayerId] });
-      const f = feats.find((ft) => {
-        const occ = (ft.state as any)?.occ;
-        return occ !== undefined && occ !== null && occ !== -9999;
-      });
-      return f ?? null;
+      if (!this.cellSelectMode) return null;
+      const layers = [this.baseLayerId, this.nicheScoreLayerId].filter((l) => this.map.getLayer(l));
+      if (!layers.length) return null;
+      const feats = this.map.queryRenderedFeatures(point, { layers });
+      const has = (v: any) => v !== undefined && v !== null && v !== -9999;
+      return feats.find((ft) => has((ft.state as any)?.occ) || has((ft.state as any)?.score_viz)) ?? null;
     };
     this.map.on('click', (e) => {
       const f = hit(e.point);
       if (!f) return;
       const id = (f.id ?? (f.properties as any)?.[this.promoteIdKey]) as number | string;
       const occ = Number((f.state as any)?.occ);
-      this.ngZone.run(() => this.cellClick.emit({ cell_id: id, occ: Number.isNaN(occ) ? null : occ }));
+      const score = Number((f.state as any)?.score_viz);
+      this.ngZone.run(() => this.cellClick.emit({
+        cell_id: id,
+        occ: Number.isNaN(occ) || occ === -9999 ? null : occ,
+        score: Number.isNaN(score) || score === -9999 ? null : score,
+      }));
     });
     this.map.on('mousemove', (e) => {
       this.map.getCanvas().style.cursor = hit(e.point) ? 'pointer' : '';
     });
   }
+
 
   private applyOccWhenSourceReady() {
     const src = this.map.getSource(this.baseSourceId) as maplibregl.GeoJSONSource | undefined;

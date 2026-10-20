@@ -268,13 +268,35 @@ export class TaxonSelectorComponent implements OnInit, OnChanges {
           const lvl = list.find(l => l.variable_id === restore.level_variable_id);
           if (lvl) this.selectedLevel = lvl;
           this.searchControl.setValue(restore.label ?? '', { emitEvent: false });
+          return;
         }
+
+        this.autoPickSingleRoot(sourceId);
       },
       error: (err) => {
         console.error(`Error cargando niveles (source_id=${sourceId}):`, err);
         this.taxonomicLevels.set([]);
         this.selectedLevel = undefined;
       }
+    });
+  }
+
+  /**
+   * Fuentes de capas (WorldClim, DEM): su primer nivel ("Fuente",
+   * "elevation_q10") suele tener una sola opción. Como en la versión estable,
+   * se elige sola para que el navegador quede precargado sin que el usuario
+   * tenga que escribirla.
+   */
+  private autoPickSingleRoot(sourceId: number) {
+    const level = this.selectedLevel;
+    if (!level || !isLayerSource(this.selectedSourceName())) return;
+    this.service.searchSpecies(level.variable_id, level.variable, '', sourceId).subscribe({
+      next: (items) => {
+        // La pestaña o el nivel pudieron cambiar mientras llegaba la respuesta.
+        if (this.selectedSourceId() !== sourceId || this.selectedLevel !== level) return;
+        if (Array.isArray(items) && items.length === 1) this.handlePick(items[0]);
+      },
+      error: () => { /* sin precarga: el usuario puede buscarla a mano */ },
     });
   }
 

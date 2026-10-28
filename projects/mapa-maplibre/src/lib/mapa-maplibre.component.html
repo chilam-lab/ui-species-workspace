@@ -9,13 +9,26 @@
   </div>
 
   <!-- Descarga GeoJSON (esquina inferior derecha, como la versión estable) -->
-  <button type="button" class="download-btn" *ngIf="showDownload"
-          [disabled]="!canDownload" (click)="downloadGeojson()"
-          [title]="'map.download' | t" [attr.aria-label]="'map.download' | t">
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <path fill="currentColor" d="M5 20h14v-2H5v2zm7-18v10.17l-3.59-3.58L7 10l5 5 5-5-1.41-1.41L13 12.17V2h-2z"/>
-    </svg>
-  </button>
+  <div class="download" *ngIf="showDownload">
+    <div class="download-menu" *ngIf="downloadMenuOpen" role="menu">
+      <button type="button" role="menuitem" [disabled]="!canDownload" (click)="onDownloadOption('map')">
+        {{ 'map.download.map' | t }}
+      </button>
+      <button type="button" role="menuitem" *ngFor="let o of extraDownloads" (click)="onDownloadOption(o.id)">
+        {{ o.label }}
+      </button>
+    </div>
+    <button type="button" class="download-btn"
+            [disabled]="downloadBusy || (!canDownload && !extraDownloads.length)" (click)="onDownloadButton()"
+            [title]="(extraDownloads.length ? 'map.download' : 'map.download.direct') | t"
+            [attr.aria-label]="(extraDownloads.length ? 'map.download' : 'map.download.direct') | t"
+            [attr.aria-expanded]="extraDownloads.length ? downloadMenuOpen : null">
+      <div class="spinner small" *ngIf="downloadBusy"></div>
+      <svg *ngIf="!downloadBusy" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path fill="currentColor" d="M5 20h14v-2H5v2zm7-18v10.17l-3.59-3.58L7 10l5 5 5-5-1.41-1.41L13 12.17V2h-2z"/>
+      </svg>
+    </button>
+  </div>
 
   <!-- Leyenda (se muestra si hay items) -->
   <div class="legend" *ngIf="legendItems?.length">

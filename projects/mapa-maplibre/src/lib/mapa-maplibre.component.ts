@@ -58,6 +58,13 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
   @Input() showDownload = false;
   /** Prefijo del archivo descargado: <prefijo>_<AAAA-MM-DD_HHmm>.geojson */
   @Input() downloadFileName = 'mapa';
+  /** Opciones extra del menú de descarga (ej. registros del target); al
+   *  elegir una se emite downloadRequest con su id y el padre genera el archivo. */
+  @Input() extraDownloads: Array<{ id: string; label: string }> = [];
+  /** El padre está generando una descarga extra: deshabilita el botón. */
+  @Input() downloadBusy = false;
+  @Output() downloadRequest = new EventEmitter<string>();
+  public downloadMenuOpen = false;
 
   @Output() cellClick = new EventEmitter<{ cell_id: number | string; occ: number | null; score: number | null }>();
 
@@ -815,6 +822,11 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
     }
     const excluded = new Set((this.excludedCells ?? []).map((c) => this.coerceIdType(c)));
     const scoreKey = this.probMode ? 'probabilidad' : 'score';
+    // Mismo reparto que el backend (scoreDeciles / getEpsScrRelationDecile):
+    // score ascendente, índice → decil 1..10 (10 = scores más altos).
+    const sorted = [...this.lastScoreById.entries()].sort((a, b) => a[1] - b[1]);
+    const decilById = new Map<number | string, number>();
+    sorted.forEach(([id], idx) => decilById.set(id, Math.min(9, Math.floor((idx * 10) / sorted.length)) + 1));
 
     const features: any[] = [];
     for (const f of this.baseGeojson?.features ?? []) {
@@ -828,7 +840,10 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
         properties.occ = occ;
         if (excluded.has(id)) properties.excluida = true;
       }
-      if (score !== undefined) properties[scoreKey] = score;
+      if (score !== undefined) {
+        properties[scoreKey] = score;
+        properties.decil = decilById.get(id);
+      }
       features.push({ type: 'Feature', geometry: f.geometry, properties });
     }
     return {
@@ -838,21 +853,23 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
     };
   }
 
+  /** Botón de descarga: sin opciones extra baja el mapa directo; con ellas
+   *  abre el menú. */
+  public onDownloadButton() {
+    if (this.extraDownloads?.length) this.downloadMenuOpen = !this.downloadMenuOpen;
+    else this.downloadGeojson();
+  }
+
+  public onDownloadOption(id: string) {
+    this.downloadMenuOpen = false;
+    if (id === 'map') this.downloadGeojson();
+    else this.downloadRequest.emit(id);
+  }
+
   /** Descarga buildGeojsonExport() como <downloadFileName>_<fecha>.geojson */
   public downloadGeojson() {
     if (!this.canDownload) return;
-    const d = new Date();
-    const p = (n: number) => String(n).padStart(2, '0');
-    const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
-    const blob = new Blob([JSON.stringify(this.buildGeojsonExport())], { type: 'application/geo+json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${this.downloadFileName}_${stamp}.geojson`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    saveFile(JSON.stringify(this.buildGeojsonExport()), `${this.downloadFileName}_${fileStamp()}.geojson`, 'application/geo+json');
   }
 
   /* =======================
@@ -888,6 +905,24 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
     }
     this.legendItems = items.reverse();
   }
+}
+
+/** Sello de fecha para nombres de archivo: AAAA-MM-DD_HHmm */
+export function fileStamp(d = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+
+/** Descarga un texto como archivo (Blob + enlace temporal). */
+export function saveFile(content: string, fileName: string, type: string) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /* === Control de capas con namespacing por mapId === */

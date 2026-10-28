@@ -8,6 +8,15 @@
     <div class="msg">{{ 'map.processing' | t }}</div>
   </div>
 
+  <!-- Descarga GeoJSON (esquina inferior derecha, como la versión estable) -->
+  <button type="button" class="download-btn" *ngIf="showDownload"
+          [disabled]="!canDownload" (click)="downloadGeojson()"
+          [title]="'map.download' | t" [attr.aria-label]="'map.download' | t">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path fill="currentColor" d="M5 20h14v-2H5v2zm7-18v10.17l-3.59-3.58L7 10l5 5 5-5-1.41-1.41L13 12.17V2h-2z"/>
+    </svg>
+  </button>
+
   <!-- Leyenda (se muestra si hay items) -->
   <div class="legend" *ngIf="legendItems?.length">
     <div class="legend-title">{{ legendTitleKey | t }}</div>

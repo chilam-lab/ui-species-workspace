@@ -52,6 +52,13 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
    *  pedir el análisis. Con mapa de probabilidad se usa la escala 0..1. */
   @Input() scoreColorMode: ScoreColorMode = 'deviation';
 
+  /** Botón de descarga en la esquina inferior derecha (como la versión
+   *  estable): baja en GeoJSON las celdas pintadas en el mapa — con su número
+   *  de registros (occ) en Target, con su score en Resultados. */
+  @Input() showDownload = false;
+  /** Prefijo del archivo descargado: <prefijo>_<AAAA-MM-DD_HHmm>.geojson */
+  @Input() downloadFileName = 'mapa';
+
   @Output() cellClick = new EventEmitter<{ cell_id: number | string; occ: number | null; score: number | null }>();
 
   /** Leyenda (opcional): si las pasas, se usan; si no, se autogeneran tras cada análisis */
@@ -85,6 +92,9 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
   private lastOccIds = new Set<number | string>();
   private lastExcludedIds = new Set<number | string>();
   private lastScoreIds = new Set<number | string>();
+  /** Malla cargada y score por celda del último análisis, para la descarga. */
+  private baseGeojson: any = null;
+  private lastScoreById = new Map<number | string, number>();
   /** Valores del último pintado de score y si el análisis fue de probabilidad,
    *  para recolorear al cambiar scoreColorMode. */
   private lastVizValues: number[] = [];
@@ -277,6 +287,8 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
     this.lastOccIds.clear();
     this.lastExcludedIds.clear();
     this.lastScoreIds.clear();
+    this.lastScoreById.clear();
+    this.baseGeojson = null;
     if (this.map.getLayer(this.nicheScoreLayerId)) this.map.removeLayer(this.nicheScoreLayerId);
   }
 
@@ -306,6 +318,7 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
         return;
       }
       this.detectPromoteIdAndType(geojson);
+      this.baseGeojson = geojson;
 
       this.map.addSource(this.baseSourceId, { type: 'geojson', data: geojson, promoteId: this.promoteIdKey as any });
 
@@ -544,11 +557,14 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
     this.lastOccIds.clear();
     this.lastExcludedIds.clear();
     this.lastScoreIds.clear();
+    this.lastScoreById.clear();
+    this.baseGeojson = null;
 
     this.geojsonService.getGeojson(grid_id).subscribe((data) => {
       const geojson = data?.geo_json;
       if (!geojson || geojson.type !== 'FeatureCollection') { console.error('GeoJSON inválido:', geojson); return; }
       this.detectPromoteIdAndType(geojson);
+      this.baseGeojson = geojson;
 
       this.map.addSource(this.baseSourceId, { type: 'geojson', data: geojson, promoteId: this.promoteIdKey as any });
 
@@ -607,6 +623,7 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
         this.map.removeFeatureState({ source: sourceId, id }, 'score_viz');
       }
       this.lastScoreIds.clear();
+      this.lastScoreById.clear();
     }
 
     if (!rows || rows.length === 0) {
@@ -651,6 +668,7 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
 
         this.map.setFeatureState({ source: sourceId, id: coercedId }, { score_viz: viz } as any);
         this.lastScoreIds.add(coercedId);
+        this.lastScoreById.set(coercedId, raw);
         applied++;
       }
 
@@ -774,6 +792,68 @@ export class MapaMaplibreComponent implements AfterViewInit, OnChanges, OnDestro
     this.legendItems = items;
   }
 
+
+  /* =======================
+     DESCARGA (GeoJSON)
+     ======================= */
+
+  /** Hay algo que descargar: malla cargada y celdas con registros o score. */
+  get canDownload(): boolean {
+    return !!this.baseGeojson && (this.occValues?.length > 0 || this.lastScoreById.size > 0);
+  }
+
+  /** FeatureCollection con las celdas pintadas: propiedades de la malla más
+   *  occ (y excluida, si se quitó del análisis) y/o score (probabilidad con
+   *  mapa de probabilidad). Mismo formato que la versión estable (CRS84). */
+  public buildGeojsonExport(): any {
+    const occById = new Map<number | string, number>();
+    for (const it of this.occValues ?? []) {
+      const raw = (it as any).cell_id ?? (it as any).cellId ?? (it as any).id ?? (it as any).cell_is;
+      const id = this.coerceIdType(raw);
+      const occ = Number(it.occ);
+      if (id != null && !Number.isNaN(occ)) occById.set(id, occ);
+    }
+    const excluded = new Set((this.excludedCells ?? []).map((c) => this.coerceIdType(c)));
+    const scoreKey = this.probMode ? 'probabilidad' : 'score';
+
+    const features: any[] = [];
+    for (const f of this.baseGeojson?.features ?? []) {
+      const id = this.coerceIdType(f?.properties?.[this.promoteIdKey] ?? f?.id);
+      if (id == null) continue;
+      const occ = occById.get(id);
+      const score = this.lastScoreById.get(id);
+      if (occ === undefined && score === undefined) continue;
+      const properties: any = { ...(f.properties ?? {}) };
+      if (occ !== undefined) {
+        properties.occ = occ;
+        if (excluded.has(id)) properties.excluida = true;
+      }
+      if (score !== undefined) properties[scoreKey] = score;
+      features.push({ type: 'Feature', geometry: f.geometry, properties });
+    }
+    return {
+      type: 'FeatureCollection',
+      crs: { type: 'name', properties: { name: 'urn:ogc:def:crs:OGC:1.3:CRS84' } },
+      features,
+    };
+  }
+
+  /** Descarga buildGeojsonExport() como <downloadFileName>_<fecha>.geojson */
+  public downloadGeojson() {
+    if (!this.canDownload) return;
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+    const blob = new Blob([JSON.stringify(this.buildGeojsonExport())], { type: 'application/geo+json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.downloadFileName}_${stamp}.geojson`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   /* =======================
      LEYENDA (inputs)

@@ -1,0 +1,21 @@
+{
+  "name": "red-species",
+  "version": "0.0.2",
+  "description": "Red de inferencia (fuente → destino) de SPECIES con Sigma.js + graphology (WebGL)",
+  "peerDependencies": {
+    "@angular/common": ">=19.2.0 <21",
+    "@angular/core": ">=19.2.0 <21",
+    "taxon-shared": "^0.0.5",
+    "sigma": "^3.0.3",
+    "graphology": "^0.26.0",
+    "graphology-layout-forceatlas2": "^0.10.1",
+    "graphology-communities-louvain": "^2.0.2"
+  },
+  "devDependencies": {
+    "taxon-shared": "0.0.5"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "sideEffects": false
+}

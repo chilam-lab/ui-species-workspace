@@ -390,6 +390,39 @@
           }
         }
       }
+    },
+    "red-species": {
+      "projectType": "library",
+      "root": "projects/red-species",
+      "sourceRoot": "projects/red-species/src",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "options": {
+            "project": "projects/red-species/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/red-species/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/red-species/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "tsConfig": "projects/red-species/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
     }
   }
 }

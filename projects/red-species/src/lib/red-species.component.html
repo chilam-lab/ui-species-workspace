@@ -1,0 +1,53 @@
+<div class="red-wrap" [style.height]="height">
+  <div #container class="sigma-container" role="img"
+       [attr.aria-label]="'red.canvasAria' | t: { nodes: shown().nodes, edges: shown().edges }"></div>
+
+  <p class="empty" *ngIf="shown().edges === 0">{{ 'red.empty' | t }}</p>
+
+  <!-- Búsqueda y modo de color -->
+  <div class="toolbar top-left">
+    <form class="search" (ngSubmit)="onSearch()">
+      <span class="material-icons" aria-hidden="true">search</span>
+      <input type="search" name="q" [(ngModel)]="searchText" [placeholder]="'red.search' | t"
+             [attr.aria-label]="'red.search' | t" (input)="searchMiss = false" />
+    </form>
+    <span class="miss" *ngIf="searchMiss">{{ 'red.noResults' | t }}</span>
+    <label class="color-by">
+      {{ 'red.colorBy' | t }}
+      <select [ngModel]="colorBy" (ngModelChange)="setColorBy($event)" name="colorBy">
+        <option *ngFor="let m of colorModes" [value]="m">{{ 'red.color.' + m | t }}</option>
+      </select>
+    </label>
+  </div>
+
+  <!-- Controles de vista -->
+  <div class="toolbar top-right">
+    <button type="button" (click)="zoom(1.5)" [title]="'red.zoomIn' | t" [attr.aria-label]="'red.zoomIn' | t">
+      <span class="material-icons" aria-hidden="true">zoom_in</span>
+    </button>
+    <button type="button" (click)="zoom(1 / 1.5)" [title]="'red.zoomOut' | t" [attr.aria-label]="'red.zoomOut' | t">
+      <span class="material-icons" aria-hidden="true">zoom_out</span>
+    </button>
+    <button type="button" (click)="center()" [title]="'red.center' | t" [attr.aria-label]="'red.center' | t">
+      <span class="material-icons" aria-hidden="true">center_focus_strong</span>
+    </button>
+    <button type="button" (click)="toggleLayout()"
+            [title]="(layoutRunning() ? 'red.pause' : 'red.resume') | t"
+            [attr.aria-label]="(layoutRunning() ? 'red.pause' : 'red.resume') | t">
+      <span class="material-icons" aria-hidden="true">{{ layoutRunning() ? 'pause' : 'play_arrow' }}</span>
+    </button>
+    <button type="button" (click)="exportPng()" [title]="'red.export' | t" [attr.aria-label]="'red.export' | t">
+      <span class="material-icons" aria-hidden="true">photo_camera</span>
+    </button>
+  </div>
+
+  <!-- Leyenda -->
+  <div class="legend">
+    <div class="summary">{{ 'red.summary' | t: { nodes: shown().nodes, edges: shown().edges } }}</div>
+    <div class="item" *ngFor="let l of legend()">
+      <span class="dot" [style.background]="l.color"></span>{{ l.label }}
+    </div>
+    <div class="item"><span class="line pos"></span>{{ 'red.edgePos' | t }}</div>
+    <div class="item"><span class="line neg"></span>{{ 'red.edgeNeg' | t }}</div>
+  </div>
+</div>

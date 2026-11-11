@@ -20,6 +20,9 @@
       "histogram-chart": [
         "./dist/histogram-chart"
       ],
+      "red-species": [
+        "./dist/red-species"
+      ],
       "mapa-malla": [
         "./dist/mapa-malla"
       ],
